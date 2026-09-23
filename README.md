@@ -61,14 +61,14 @@ Rules:
 
 ## Build
 
-Requires CMake 3.20+, a C++11 compiler, and Libaoa_hid 2.0.x.
+Requires CMake 3.20+, a C++11 compiler, and Libaoa_hid 3.0.x.
 
 ```sh
 # Recommended: an extracted official Libaoa_hid release package
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-2.0.1-<platform>-shared
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-3.0.0-<platform>-shared
 cmake --build build --config Release
 
-# Otherwise Libaoa_hid v2.0.1 is fetched from source (needs libusb 1.0.30+)
+# Otherwise Libaoa_hid v3.0.0 is fetched from source (needs libusb 1.0.30+)
 cmake -S . -B build && cmake --build build
 ```
 
@@ -77,8 +77,8 @@ Release archives contain this library, its header, and the example. At runtime, 
 ## Latency
 
 - USB HID input goes over EP0 and never waits on the ADB path.
-- Device-to-host bytes are sent to TCP as soon as they arrive. USB transfers are one packet each, so nothing waits for a transfer to fill.
-- Host-to-device packets are written as soon as their payload is complete, the same way host adb writes them. On loopback this adds microseconds. `TCP_NODELAY` is on.
+- USB I/O matches host adb. Each read asks for exactly the bytes still missing: the 24-byte header, then `data_length`. So a transfer completes the moment its data is in, and payloads move as single large transfers.
+- Each apacket is forwarded as soon as it is complete, in either direction. On loopback this adds microseconds. `TCP_NODELAY` is on.
 - Blocking waits wake immediately on data. The 100 ms timeout only bounds shutdown.
 
 ## More
@@ -89,8 +89,8 @@ Release archives contain this library, its header, and the example. At runtime, 
 
 ## Status
 
-- Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB writers. Channel behavior was checked against the Libaoa_hid 2.0.1 sources.
-- Tested with a real host `adb` (37.0.0) through the proxy to a fake device that enforces pre-2024 adbd framing: `connect`, `devices`, `shell`, and reconnect all work, with zero framing violations. Stub tests cover partial-write resume and malformed headers. Everything also runs clean under ASan, UBSan, and TSan.
+- Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB readers and writers. Channel behavior was checked against the Libaoa_hid 3.0.0 sources.
+- Tested with a real host `adb` (37.0.0) through the proxy to a fake device. The fake enforces pre-2024 adbd write framing and models USB IN transfers, including payloads with no zero-length packet. `connect`, `devices`, `shell`, packet-aligned payloads (512 and 4096 bytes), 1 MiB payloads, and reconnect all work, with zero framing violations and zero would-stall reads. A negative control with oversized reads is correctly flagged. Everything also runs clean under ASan and UBSan.
 - **Not yet verified end-to-end on real hardware** (Windows or Linux). Libaoa_hid also lists simultaneous ADB Channel + HID on `2d01` as not yet hardware-tested.
 
 ## License

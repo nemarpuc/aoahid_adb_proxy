@@ -7,9 +7,9 @@ WinUSB lets only one process open a device. Libaoa_hid drives HID on EP0 and a b
 ## Threads
 
 ```text
-accept : select(100 ms) -> accept -> TCP_NODELAY -> drop stale USB input
+accept : select(100 ms) -> accept -> TCP_NODELAY
   ├ tx : TCP -> re-frame per apacket -> aoahid_channel_write
-  └ rx : aoahid_channel_read -> batch what is queued -> send
+  └ rx : aoahid_channel_read (header, then data_length) -> send
 ```
 
 - Waits return as soon as data is ready. The 100 ms timeout only bounds how long `stop` takes (up to 1 s if the device has stopped reading).
@@ -54,15 +54,19 @@ Behavior of Libaoa_hid `Channel::write` (`src/transport/channel.cpp`):
 - `written < remaining`: write the rest again, starting after the queued bytes.
 - `written == remaining`: all data is queued and only the ZLP is pending. The API cannot send a ZLP alone, so the session is dropped.
 
-## Channel transfer size
+## Channel settings
 
-adbd sends **no** ZLP after a packet-aligned payload. Host adb reads exact lengths instead (`client/usb_libusb_device.cpp` `Read`: 24 bytes, then `data_length`). With Libaoa_hid's default 64 KiB read-ahead, an IN transfer holding, for example, a 4096-byte payload would stay incomplete until the device sends more. The device may be waiting for the host's reply, which is a deadlock.
+adbd sends **no** ZLP after a packet-aligned payload. Host adb reads exact lengths instead (`client/usb_libusb_device.cpp` `Read`: 24 bytes, then `data_length`; `client/transport_usb.cpp` `UsbReadPayload`). A Bulk IN transfer completes only when full or on a short packet. With read-ahead transfers, a 4096-byte payload inside a larger transfer would wait for more data. The device may be waiting for the host's reply, which is a deadlock.
 
-The proxy therefore opens the Channel with `transfer_bytes = 1`, which Libaoa_hid rounds up to `wMaxPacketSize`. Every IN transfer then completes on every packet. 32 IN and 32 OUT transfers stay queued to keep the bus busy.
+The proxy opens the Channel the way host adb uses USB:
 
-## USB -> TCP is forwarded as is
+- `read_mode = AOAHID_CHANNEL_READ_REQUEST` (Libaoa_hid 3.0). Each read submits one IN transfer for exactly the bytes still missing, rounded up to `wMaxPacketSize`: the header, then `data_length`. It completes the moment the data is in.
+- `transfer_bytes = 1 MiB` (`MAX_PAYLOAD`). Every payload goes out as one OUT transfer, followed by a ZLP when packet-aligned.
+- `out_transfers = 2`, so the next header can queue behind a payload.
 
-Host adb parses TCP as a byte stream (`transport_fd.cpp`), so no framing is needed. After the first bytes arrive, the rx thread collects everything already received with non-blocking reads and sends it in one `send`. This adds no waiting.
+## USB -> TCP
+
+The rx thread assembles one whole apacket (header, then exactly `data_length`) and sends it in one `send`. The packet being assembled lives in the proxy context. If a client disconnects mid-packet, the next session finishes reading that packet and drops it, so the new client never starts mid-packet.
 
 The device uses TLS (`A_STLS`) only on its Wi-Fi transport. Over USB it uses the normal CNXN/AUTH exchange, which the proxy passes through unchanged.
 
@@ -72,5 +76,6 @@ In adbd, packets from USB and from TCP both become `apacket`s handled by `handle
 
 ## Libaoa_hid requirements
 
+- Libaoa_hid 3.0 or later (for `read_mode`).
 - The Context must use `AOAHID_EVENT_INTERNAL_THREAD`. In `CALLER_POLL` mode, Channel reads and writes must be serialized by the caller, so separate threads cannot call them concurrently (see `aoahid_channel_write` in `aoahid.h`).
 - There is one reader thread and one writer thread. `aoahid_channel_close` runs in `stop`, after both threads have been joined.

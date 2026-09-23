@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0
+
+- Requires Libaoa_hid 3.0. The ADB Channel now uses `AOAHID_CHANNEL_READ_REQUEST` and reads each apacket the way host adb does: the 24-byte header, then exactly `data_length` in one IN transfer. Payloads go out as one OUT transfer of up to 1 MiB. This replaces the one-packet transfers of 1.0.0, which were correct but spent a transfer per 512 bytes.
+- Device-to-host traffic is forwarded one whole apacket per `send`.
+- A packet cut off by a client disconnect is finished and dropped at the start of the next session, instead of draining USB input.
+
 ## 1.0.0
 
 First release.

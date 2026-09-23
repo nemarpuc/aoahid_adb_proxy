@@ -27,7 +27,6 @@ typedef int socket_t;
 // AOSP packages/modules/adb: sizeof(amessage), MAX_PAYLOAD
 static const size_t kHeaderSize = 24;
 static const uint32_t kMaxPayload = 1024 * 1024;
-static const size_t kIoBufferSize = 64 * 1024;
 static const uint32_t kPollMs = 100;
 // adbd keeps USB reads queued, so a pool that stays full this long means a stuck device.
 static const uint32_t kUsbWriteMs = 1000;
@@ -37,6 +36,11 @@ struct aoahid_adb_proxy_context {
     socket_t listen_sock;
     std::atomic<bool> running;
     std::thread accept_thread;
+    // USB -> TCP packet being assembled; survives a session so a new client
+    // never starts mid-packet. Only the rx thread touches it while it runs.
+    std::vector<uint8_t> rx_packet;
+    size_t rx_have;
+    size_t rx_need;
 };
 
 namespace {
@@ -118,31 +122,48 @@ void tx_loop(Session* s) {
     s->alive = false;
 }
 
-// USB -> TCP. Host adb parses TCP as a byte stream, so bytes are forwarded as
-// they arrive; whatever is already queued is batched into one send.
-void rx_loop(Session* s) {
-    std::vector<uint8_t> buf(kIoBufferSize);
-    while (s->active()) {
+// Reads until `need` bytes of the current packet are in. Request-mode reads
+// size each USB transfer to what is still missing, as host adb does, so a
+// packet-aligned payload with no ZLP completes as soon as it is full.
+bool usb_read_to(Session& s, size_t need) {
+    aoahid_adb_proxy_context* c = s.ctx;
+    while (c->rx_have < need) {
+        if (!s.active()) return false;
         size_t got = 0;
-        aoahid_result r = aoahid_channel_read(s->ctx->channel, buf.data(), buf.size(), &got, kPollMs);
+        aoahid_result r =
+            aoahid_channel_read(c->channel, &c->rx_packet[c->rx_have], need - c->rx_have, &got, kPollMs);
         if (r == AOAHID_ERR_TIMEOUT) continue;
-        if (r != AOAHID_OK) break;
-        size_t more = 0;
-        while (got < buf.size() &&
-               aoahid_channel_read(s->ctx->channel, buf.data() + got, buf.size() - got, &more, 0) == AOAHID_OK) {
-            got += more;
+        if (r != AOAHID_OK) {
+            c->running = false;  // the Channel is lost
+            return false;
         }
-        if (!send_all(s->sock, buf.data(), got)) break;
+        c->rx_have += got;
     }
-    s->alive = false;
+    return true;
 }
 
-// Drop bytes the device sent to a previous client so a new one starts clean.
-void drain_usb(aoahid_channel* channel) {
-    std::vector<uint8_t> buf(kIoBufferSize);
-    size_t got = 0;
-    while (aoahid_channel_read(channel, buf.data(), buf.size(), &got, 0) == AOAHID_OK) {
+// USB -> TCP, one whole apacket per send: header, then exactly data_length.
+void rx_loop(Session* s) {
+    aoahid_adb_proxy_context* c = s->ctx;
+    // Finish, but drop, a packet the previous client was receiving.
+    bool drop = c->rx_have != 0;
+    while (s->active()) {
+        if (c->rx_have < kHeaderSize) {
+            if (!usb_read_to(*s, kHeaderSize)) break;
+            uint32_t length = le32(&c->rx_packet[12]);
+            if (length > kMaxPayload) {
+                c->running = false;  // framing lost; host adb would reject it too
+                break;
+            }
+            c->rx_need = kHeaderSize + length;
+        }
+        if (!usb_read_to(*s, c->rx_need)) break;
+        size_t n = c->rx_need;
+        c->rx_have = 0;
+        if (!drop && !send_all(s->sock, c->rx_packet.data(), n)) break;
+        drop = false;
     }
+    s->alive = false;
 }
 
 void accept_loop(aoahid_adb_proxy_context* ctx) {
@@ -153,7 +174,6 @@ void accept_loop(aoahid_adb_proxy_context* ctx) {
 
         int one = 1;
         setsockopt(client, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&one), sizeof(one));
-        drain_usb(ctx->channel);
 
         Session s;
         s.ctx = ctx;
@@ -186,13 +206,13 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     opt.interface_class = 0xFF;  // AOSP adb.h ADB_CLASS/SUBCLASS/PROTOCOL
     opt.interface_subclass = 0x42;
     opt.interface_protocol = 0x01;
-    // adbd sends no ZLP after a packet-aligned payload (host adb reads exact
-    // lengths), so a larger IN transfer could wait forever for its end.
-    // One-packet transfers complete on every packet.
-    opt.transfer_bytes = 1;  // rounded up to wMaxPacketSize
-    opt.in_transfers = 32;
-    opt.out_transfers = 32;
-    // Host adb ends packet-aligned payloads with a ZLP; legacy adbd expects it.
+    // Mirrors host adb: each IN transfer asks for exactly the bytes still
+    // missing (adbd sends no ZLP after a packet-aligned payload), and each
+    // payload goes out as one OUT transfer (up to MAX_PAYLOAD) ending in a ZLP
+    // when packet-aligned, which legacy adbd expects.
+    opt.read_mode = AOAHID_CHANNEL_READ_REQUEST;
+    opt.transfer_bytes = kMaxPayload;
+    opt.out_transfers = 2;  // the next header can queue behind a payload
     opt.zero_length_termination = 1;
 
     aoahid_channel* channel = nullptr;
@@ -232,6 +252,9 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     ctx->channel = channel;
     ctx->listen_sock = sock;
     ctx->running = true;
+    ctx->rx_packet.resize(kHeaderSize + kMaxPayload);
+    ctx->rx_have = 0;
+    ctx->rx_need = 0;
     ctx->accept_thread = std::thread(accept_loop, ctx);
     *out_proxy = ctx;
     return 0;
