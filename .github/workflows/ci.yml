@@ -61,7 +61,10 @@ jobs:
         run: |
           extra=()
           if [[ "$RUNNER_OS" == "Linux" ]]; then
-            extra+=("-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath-link,$AOAHID_PREFIX/lib")
+            ldflags="-Wl,-rpath-link,$AOAHID_PREFIX/lib"
+            # The cross sysroot has no arm64 libudev (needed only by libusb at run time).
+            [[ "${{ matrix.name }}" == linux-aarch64 ]] && ldflags+=" -Wl,--allow-shlib-undefined"
+            extra+=("-DCMAKE_EXE_LINKER_FLAGS=$ldflags")
           fi
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }} \
             -DCMAKE_PREFIX_PATH="$AOAHID_PREFIX" "${extra[@]}"
