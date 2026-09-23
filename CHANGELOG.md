@@ -1,0 +1,15 @@
+# Changelog
+
+## 1.0.0
+
+First release.
+
+- Forwards the ADB interface of a Libaoa_hid device to `127.0.0.1:<port>` for `adb connect`.
+- Writes each apacket to USB the way host adb does: the header in one write, the payload in one write, and a ZLP when the payload is packet-aligned. This works with current, pre-2024, and legacy (Android 8/9) adbd.
+- Uses one-packet Channel transfers (32 queued each way), so a packet-aligned payload from the device never stalls.
+- Forwards device output to TCP as soon as it arrives, with `TCP_NODELAY`.
+- Resumes partially queued USB writes and partial TCP sends.
+- Uses `select` for all socket waits, so `stop` returns within about 100 ms on every platform.
+- Drops clients that send malformed headers, and discards stale USB input when a new client connects.
+- Finds an installed Libaoa_hid (`find_package(aoahid)`). If none is found, fetches tag `v2.0.1`.
+- Includes a runnable example that switches the phone to accessory + ADB mode and serves ADB on port 6555.

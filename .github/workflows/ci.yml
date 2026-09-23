@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  AOAHID_VERSION: 2.0.1
+
+jobs:
+  build:
+    name: Build ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-22.04
+            aoahid_pkg: linux-x86_64-ubuntu22.04-shared
+            cmake_args: ""
+          - name: linux-aarch64
+            os: ubuntu-22.04
+            aoahid_pkg: linux-aarch64-ubuntu22.04-shared
+            cmake_args: "-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+          - name: windows-x86_64
+            os: windows-latest
+            aoahid_pkg: windows-x86_64-shared
+            cmake_args: "-A x64"
+          - name: windows-arm64
+            os: windows-latest
+            aoahid_pkg: windows-arm64-shared
+            cmake_args: "-A ARM64"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cross compiler
+        if: matrix.name == 'linux-aarch64'
+        run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu
+
+      - name: Fetch Libaoa_hid release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pkg="libaoahid-${AOAHID_VERSION}-${{ matrix.aoahid_pkg }}"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then ext=zip; else ext=tar.gz; fi
+          gh release download "v${AOAHID_VERSION}" -R nemarpuc/Libaoa_hid -p "$pkg.$ext" -p SHA256SUMS -D deps
+          (cd deps && grep " $pkg.$ext\$" SHA256SUMS | sha256sum -c -)
+          if [[ "$ext" == zip ]]; then unzip -q "deps/$pkg.$ext" -d deps; else tar -xzf "deps/$pkg.$ext" -C deps; fi
+          echo "AOAHID_PREFIX=$(pwd -W 2>/dev/null || pwd)/deps/$pkg" >> "$GITHUB_ENV"
+
+      - name: Configure
+        shell: bash
+        run: |
+          extra=()
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            extra+=("-DCMAKE_EXE_LINKER_FLAGS=-Wl,-rpath-link,$AOAHID_PREFIX/lib")
+          fi
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release ${{ matrix.cmake_args }} \
+            -DCMAKE_PREFIX_PATH="$AOAHID_PREFIX" "${extra[@]}"
+          grep -q "^aoahid_DIR:PATH=.*/deps/" build/CMakeCache.txt
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Package
+        shell: bash
+        run: |
+          name="aoahid_adb_proxy-${GITHUB_REF_NAME//\//-}-${{ matrix.name }}"
+          cmake --install build --config Release --prefix "stage/$name"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            (cd stage && 7z a -tzip "../$name.zip" "$name" > /dev/null)
+          else
+            tar -czf "$name.tar.gz" -C stage "$name"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pkg-${{ matrix.name }}
+          path: |
+            *.zip
+            *.tar.gz
+          if-no-files-found: error
