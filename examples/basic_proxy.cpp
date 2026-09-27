@@ -120,7 +120,14 @@ int main() {
     aoahid_adb_proxy_context* proxy = nullptr;
     int pr = aoahid_adb_proxy_start(dev, kPort, &proxy);
     if (pr != 0) {
+#ifdef _WIN32
+        std::fprintf(stderr,
+                     "proxy start failed: %d (-2: run `adb kill-server` first, and check that "
+                     "the phone's driver is WinUSB; see docs/USAGE.md)\n",
+                     pr);
+#else
         std::fprintf(stderr, "proxy start failed: %d (-2: run `adb kill-server` first)\n", pr);
+#endif
     } else {
         std::printf("ADB proxy ready. Run: adb connect 127.0.0.1:%u\n", kPort);
         std::printf("Press Enter to stop.\n");
