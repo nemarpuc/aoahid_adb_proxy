@@ -34,11 +34,33 @@ On startup, the adb server scans ports 5555-5585 for emulators (AOSP `client/tra
 | Symptom | Cause / fix |
 |---|---|
 | `start` returns `-2` | The adb server holds the interface: run `adb kill-server`. Or USB debugging is off, so the device came up as `2d00` (no ADB). |
+| Windows: `start` returns `-2`, and `aoahid_last_error()->libusb_status` is `-12` | The phone's driver is not one libusb can use (WinUSB, libusbK or libusb0). Some manufacturers install their own driver by default. Switch the phone to WinUSB with Zadig; see [the Samsung example](#example-samsung-on-windows). |
 | `start` returns `-4` | The port is in use. Pick another port. |
 | `offline` after `adb connect` | Accept the prompt on the phone, then `adb disconnect` and reconnect. |
 | Connection drops | The phone was unplugged, or USB writes stalled. The proxy keeps listening, so run `adb connect` again. If the USB device itself was lost, restart your app. |
 
+### Example: Samsung on Windows
+
+A Samsung tablet with Samsung's default USB driver opened and took HID input normally, but `aoahid_adb_proxy_start` returned `-2`. Right after it, on the same thread, `aoahid_last_error()` reported `AOAHID_ERR_UNSUPPORTED` from `channel.open` with `libusb_status` `-12` (`LIBUSB_ERROR_NOT_SUPPORTED`). On Windows, libusb can only claim an interface whose driver is WinUSB, libusbK or libusb0. HID uses the control endpoint, so it still worked. The adb server and USB debugging were not the cause.
+
+Why Samsung and not the HyperOS phone: on Windows the HyperOS phone's ADB interface came up with WinUSB from the start, so the proxy worked with no changes. Samsung ships its own dedicated USB driver, and Windows uses it for Samsung devices instead of WinUSB. On the tablet, the parent device "SAMSUNG Mobile USB Composite Device" used Samsung's `dg_ssudbus` (version 2.21.4.0). libusb accepts `dg_ssudbus` as a composite parent, but the ADB interface under it did not get WinUSB, so libusb could not claim it.
+
+The fix:
+
+1. Plug in the phone and open Device Manager.
+2. Under *Universal Serial Bus controllers*, right-click the phone's parent device ("SAMSUNG Mobile USB Composite Device" for Samsung) and choose *Uninstall device*. Tick *Attempt to remove the driver for this device* (*Delete the driver software for this device* on Windows 10) and click *Uninstall*. Without this tick, Windows puts the same driver back.
+3. Unplug the phone and plug it back in.
+4. Download and run [Zadig](https://zadig.akeo.ie/).
+5. Turn on *Options → List All Devices*.
+6. Pick the phone in the drop-down. The names depend on the device; check that the *USB ID* matches the phone.
+7. Set the driver on the right of the arrow to *WinUSB* and click *Replace Driver* (*Install Driver* if it had none).
+8. Open the device in your app again and start the proxy.
+
+Other manufacturers that ship their own dedicated USB driver can be handled the same way. A phone whose ADB interface is already WinUSB, like the HyperOS phone, needs none of this.
+
+After this, Windows `adb.exe` on its own no longer sees the phone over USB, and tools that need the manufacturer's driver (such as Samsung Smart Switch) may stop working with it. adb keeps working through the proxy. To undo, repeat steps 1-3, or reinstall the manufacturer's USB driver.
+
 ## Limits
 
 - One adb client at a time. Normally there is only one adb server, so this is enough.
-- End-to-end testing on real hardware has not been done yet.
+- Verified end to end on real hardware with a Samsung tablet and a HyperOS phone, each on Linux and on Windows, through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (`AOAHID_START_CURRENT_USB_MODE`, no accessory switch), so the accessory-mode path in `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
