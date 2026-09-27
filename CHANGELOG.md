@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.2
+
+- libaoahid's repository is now `nemarpuc/libaoahid` (was `nemarpuc/Libaoa_hid`); links, CI, and the fallback fetch use the new name.
+- The fallback fetch and CI use libaoahid 3.0.4, which includes 3.0.2's fix for a Channel losing its claim on Windows. An installed libaoahid 3.0.x is still accepted.
+
 ## 2.0.1
 
 - The example's `-2` hint on Windows also points at the phone's driver, since a manufacturer driver instead of WinUSB gives the same result.

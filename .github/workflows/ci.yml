@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  AOAHID_VERSION: 3.0.0
+  AOAHID_VERSION: 3.0.4
 
 jobs:
   build:
@@ -44,14 +44,14 @@ jobs:
         if: matrix.name == 'linux-aarch64'
         run: sudo apt-get update && sudo apt-get install -y g++-aarch64-linux-gnu
 
-      - name: Fetch Libaoa_hid release
+      - name: Fetch libaoahid release
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           pkg="libaoahid-${AOAHID_VERSION}-${{ matrix.aoahid_pkg }}"
           if [[ "$RUNNER_OS" == "Windows" ]]; then ext=zip; else ext=tar.gz; fi
-          gh release download "v${AOAHID_VERSION}" -R nemarpuc/Libaoa_hid -p "$pkg.$ext" -p SHA256SUMS -D deps
+          gh release download "v${AOAHID_VERSION}" -R nemarpuc/libaoahid -p "$pkg.$ext" -p SHA256SUMS -D deps
           (cd deps && grep " $pkg.$ext\$" SHA256SUMS | sha256sum -c -)
           if [[ "$ext" == zip ]]; then unzip -q "deps/$pkg.$ext" -d deps; else tar -xzf "deps/$pkg.$ext" -C deps; fi
           echo "AOAHID_PREFIX=$(pwd -W 2>/dev/null || pwd)/deps/$pkg" >> "$GITHUB_ENV"

@@ -2,7 +2,7 @@
 
 ## Goal
 
-WinUSB lets only one process open a device. Libaoa_hid drives HID on EP0 and a bulk Channel on the ADB interface through a **single handle**. So the app owns the device, and only ADB bulk traffic is exposed over TCP.
+WinUSB lets only one process open a device. libaoahid drives HID on EP0 and a bulk Channel on the ADB interface through a **single handle**. So the app owns the device, and only ADB bulk traffic is exposed over TCP.
 
 ## Threads
 
@@ -42,7 +42,7 @@ So the tx thread writes exactly the way host adb does (`client/usb_windows.cpp` 
 
 Buffering the payload costs only a loopback copy (microseconds).
 
-Behavior of Libaoa_hid `Channel::write` (`src/transport/channel.cpp`):
+Behavior of libaoahid `Channel::write` (`src/transport/channel.cpp`):
 
 - Each call is split into back-to-back full-packet transfers, followed by one short tail. It never shares a transfer with another call.
 - With `zero_length_termination = 1`, a call whose length is a multiple of `wMaxPacketSize` ends with a zero-length packet (ZLP). Host adb does the same (`zero_mask`, `zlp_mask_`), and legacy adbd expects it (`reads_zero_packets = true`).
@@ -60,7 +60,7 @@ adbd sends **no** ZLP after a packet-aligned payload. Host adb reads exact lengt
 
 The proxy opens the Channel the way host adb uses USB:
 
-- `read_mode = AOAHID_CHANNEL_READ_REQUEST` (Libaoa_hid 3.0). Each read submits one IN transfer for exactly the bytes still missing, rounded up to `wMaxPacketSize`: the header, then `data_length`. It completes the moment the data is in.
+- `read_mode = AOAHID_CHANNEL_READ_REQUEST` (libaoahid 3.0). Each read submits one IN transfer for exactly the bytes still missing, rounded up to `wMaxPacketSize`: the header, then `data_length`. It completes the moment the data is in.
 - `transfer_bytes = 1 MiB` (`MAX_PAYLOAD`). Every payload goes out as one OUT transfer, followed by a ZLP when packet-aligned.
 - `out_transfers = 2`, so the next header can queue behind a payload.
 
@@ -74,8 +74,8 @@ The device uses TLS (`A_STLS`) only on its Wi-Fi transport. Over USB it uses the
 
 In adbd, packets from USB and from TCP both become `apacket`s handled by `handle_packet()`. The only transport difference is the USB transfer framing described above, and the proxy handles it.
 
-## Libaoa_hid requirements
+## libaoahid requirements
 
-- Libaoa_hid 3.0 or later (for `read_mode`).
+- libaoahid 3.0 or later (for `read_mode`).
 - The Context must use `AOAHID_EVENT_INTERNAL_THREAD`. In `CALLER_POLL` mode, Channel reads and writes must be serialized by the caller, so separate threads cannot call them concurrently (see `aoahid_channel_write` in `aoahid.h`).
 - There is one reader thread and one writer thread. `aoahid_channel_close` runs in `stop`, after both threads have been joined.

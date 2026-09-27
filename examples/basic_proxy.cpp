@@ -1,5 +1,5 @@
 // Minimal host app: switch the first phone to AOA accessory+ADB mode, open it
-// with Libaoa_hid, and expose its ADB interface on 127.0.0.1:6555.
+// with libaoahid, and expose its ADB interface on 127.0.0.1:6555.
 //
 // Order: `adb kill-server` -> run this -> `adb connect 127.0.0.1:6555`
 // (see docs/USAGE.md). HID code would go where the example waits for Enter.
