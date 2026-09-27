@@ -52,13 +52,15 @@ The fix:
 3. Unplug the phone and plug it back in.
 4. Download and run [Zadig](https://zadig.akeo.ie/).
 5. Turn on *Options → List All Devices*.
-6. Pick the phone in the drop-down. The names depend on the device; check that the *USB ID* matches the phone.
+6. Pick the entry for the whole phone, not one of its interfaces. On the Samsung tablet it was "SAMSUNG Android"; the entries for its ADB and MTP interfaces (names ending in "(Interface N)") did not fix it when changed. The names depend on the device; the whole phone's *USB ID* has two boxes (vendor and product), while an interface entry has a third one.
 7. Set the driver on the right of the arrow to *WinUSB* and click *Replace Driver* (*Install Driver* if it had none).
 8. Open the device in your app again and start the proxy.
 
+With the whole phone on WinUSB, libusb treats it as one WinUSB device and reaches every interface, ADB included, through it (`winusbx_claim_interface` uses `WinUsb_GetAssociatedInterface`). Replacing only the ADB interface's driver left `start` failing on the Samsung tablet, most likely because Samsung's composite driver does not expose that interface in a way libusb can map; this was not examined further.
+
 Other manufacturers that ship their own dedicated USB driver can be handled the same way. A phone whose ADB interface is already WinUSB, like the HyperOS phone, needs none of this.
 
-After this, Windows `adb.exe` on its own no longer sees the phone over USB, and tools that need the manufacturer's driver (such as Samsung Smart Switch) may stop working with it. adb keeps working through the proxy. To undo, repeat steps 1-3, or reinstall the manufacturer's USB driver.
+After this, Windows `adb.exe` on its own no longer sees the phone over USB, Windows no longer shows the phone for file transfer (MTP), since the whole phone is on WinUSB, and tools that need the manufacturer's driver (such as Samsung Smart Switch) may stop working with it. adb keeps working through the proxy. To undo, repeat steps 1-3, or reinstall the manufacturer's USB driver.
 
 ## Limits
 

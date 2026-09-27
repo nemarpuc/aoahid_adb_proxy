@@ -3,7 +3,7 @@
 ## 2.0.1
 
 - The example's `-2` hint on Windows also points at the phone's driver, since a manufacturer driver instead of WinUSB gives the same result.
-- Documented the Samsung-on-Windows driver fix (Device Manager and Zadig) and the end-to-end hardware results: a Samsung tablet and a HyperOS phone, on Linux and Windows.
+- Documented the Samsung-on-Windows driver fix (Device Manager, then Zadig on the whole device) and the end-to-end hardware results: a Samsung tablet and a HyperOS phone, on Linux and Windows.
 
 ## 2.0.0
 
