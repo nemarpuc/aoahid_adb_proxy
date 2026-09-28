@@ -77,6 +77,6 @@ In adbd, packets from USB and from TCP both become `apacket`s handled by `handle
 
 ## libaoahid requirements
 
-- libaoahid 3.0 or later (for `read_mode`).
+- libaoahid 4.x (`read_mode` arrived in 3.0).
 - The Context must use `AOAHID_EVENT_INTERNAL_THREAD`. In `CALLER_POLL` mode, Channel reads and writes must be serialized by the caller, so separate threads cannot call them concurrently (see `aoahid_channel_write` in `aoahid.h`).
 - There is one reader thread and one writer thread. `aoahid_channel_close` runs in `stop`, after both threads have been joined.

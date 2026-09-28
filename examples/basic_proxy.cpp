@@ -21,7 +21,6 @@ static aoahid_device_options device_options() {
     aoahid_device_options o;
     std::memset(&o, 0, sizeof(o));
     o.struct_size = sizeof(o);
-    o.startup_mode = AOAHID_START_CURRENT_USB_MODE;
     o.control_timeout_ms = 500;
     o.send_timeout_ms = 500;
     o.descriptor_fragment_bytes = 4096;

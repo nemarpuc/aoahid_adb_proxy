@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  AOAHID_VERSION: 3.0.5
+  AOAHID_VERSION: 4.0.0
 
 jobs:
   build:

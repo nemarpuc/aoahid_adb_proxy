@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0
+
+- Requires libaoahid 4.0. The fallback fetch and CI use libaoahid 4.0.0, and an installed libaoahid 3.x is no longer accepted. The proxy's own API is unchanged.
+- The example no longer sets `startup_mode`, which libaoahid 4.0 removed.
+
 ## 2.1.0
 
 - Fixed: a client that disconnected while the device was still sending could kill the host process with `SIGPIPE` on Linux and macOS. Sends now use `MSG_NOSIGNAL` (`SO_NOSIGPIPE` where that is the mechanism), so the session just ends.
