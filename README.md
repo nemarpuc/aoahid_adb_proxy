@@ -55,6 +55,7 @@ if (aoahid_adb_proxy_start(device, 6555, &proxy) == 0) {
 | `-3` | Socket setup failed |
 | `-4` | Port in use |
 | `-5` | `listen` failed |
+| `-6` | Out of memory, or no thread could be started |
 
 Rules:
 - Create the Context with `AOAHID_EVENT_INTERNAL_THREAD`. The proxy reads and writes from its own threads.
@@ -67,10 +68,10 @@ Requires CMake 3.20+, a C++11 compiler, and libaoahid 3.0.x.
 
 ```sh
 # Recommended: an extracted official libaoahid release package
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-3.0.4-<platform>-shared
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-3.0.5-<platform>-shared
 cmake --build build --config Release
 
-# Otherwise libaoahid v3.0.4 is fetched from source (needs libusb 1.0.30+)
+# Otherwise libaoahid v3.0.5 is fetched from source (needs libusb 1.0.30+)
 cmake -S . -B build && cmake --build build
 ```
 

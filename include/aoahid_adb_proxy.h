@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 #define AOAHID_ADB_PROXY_VERSION_MAJOR 2
-#define AOAHID_ADB_PROXY_VERSION_MINOR 0
+#define AOAHID_ADB_PROXY_VERSION_MINOR 1
 #define AOAHID_ADB_PROXY_VERSION_PATCH 0
 
 typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
@@ -29,6 +29,7 @@ typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
  *  -3 socket setup failed
  *  -4 port in use
  *  -5 listen failed
+ *  -6 out of memory, or no thread could be started
  */
 int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy);
 

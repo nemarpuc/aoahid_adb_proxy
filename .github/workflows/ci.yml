@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  AOAHID_VERSION: 3.0.4
+  AOAHID_VERSION: 3.0.5
 
 jobs:
   build:
@@ -39,6 +39,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check the header version
+        shell: bash
+        run: |
+          project=$(sed -n 's/^project(aoahid_adb_proxy VERSION \([0-9.]*\) .*/\1/p' CMakeLists.txt)
+          header=$(awk '/#define AOAHID_ADB_PROXY_VERSION_(MAJOR|MINOR|PATCH)/ { printf "%s%s", sep, $3; sep = "." }' include/aoahid_adb_proxy.h)
+          if [[ -z "$project" || "$project" != "$header" ]]; then
+            echo "::error::CMakeLists.txt says '$project' but include/aoahid_adb_proxy.h says '$header'"
+            exit 1
+          fi
 
       - name: Install cross compiler
         if: matrix.name == 'linux-aarch64'

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.1.0
+
+- Fixed: a client that disconnected while the device was still sending could kill the host process with `SIGPIPE` on Linux and macOS. Sends now use `MSG_NOSIGNAL` (`SO_NOSIGPIPE` where that is the mechanism), so the session just ends.
+- Fixed: outside Windows, socket waits use `poll` instead of `select`, so a socket whose descriptor number is `FD_SETSIZE` (1024) or higher, as in an application with many open files, no longer overruns `fd_set`.
+- Fixed: `aoahid_adb_proxy_start` no longer lets an allocation or thread-creation failure escape as a C++ exception through the C API. It returns the new code `-6` instead, and a session whose threads cannot start drops only that client.
+- The two packet buffers are allocated once when the proxy starts and are not zero-filled, so only the pages payloads actually use become resident, and a session allocates nothing.
+- The header's version macros match the release again (2.0.1 and 2.0.2 still said 2.0.0), and CI now checks them against `CMakeLists.txt`.
+- The fallback fetch and CI use libaoahid 3.0.5.
+
 ## 2.0.2
 
 - libaoahid's repository is now `nemarpuc/libaoahid` (was `nemarpuc/Libaoa_hid`); links, CI, and the fallback fetch use the new name.

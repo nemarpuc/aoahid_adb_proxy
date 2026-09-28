@@ -7,14 +7,15 @@ WinUSB lets only one process open a device. libaoahid drives HID on EP0 and a bu
 ## Threads
 
 ```text
-accept : select(100 ms) -> accept -> TCP_NODELAY
+accept : poll(100 ms) -> accept -> TCP_NODELAY
   ├ tx : TCP -> re-frame per apacket -> aoahid_channel_write
   └ rx : aoahid_channel_read (header, then data_length) -> send
 ```
 
 - Waits return as soon as data is ready. The 100 ms timeout only bounds how long `stop` takes (up to 1 s if the device has stopped reading).
-- All socket waits use `select`. On Windows, `SO_RCVTIMEO` does not apply to `accept`, and a socket whose receive timed out is left in an undefined state.
+- All socket waits use `poll` (`select` on Windows). On Windows, `SO_RCVTIMEO` does not apply to `accept`, and a socket whose receive timed out is left in an undefined state. Unlike `select`, `poll` has no `FD_SETSIZE` limit on the descriptor value, which a host application with many open files can exceed.
 - If a client stops reading and rx blocks in `send`, the socket is `shutdown` after tx exits.
+- Sends use `MSG_NOSIGNAL` (`SO_NOSIGPIPE` where that is the mechanism), so a client that disconnects while the device is still sending ends the session with `EPIPE` instead of killing the host process with `SIGPIPE`.
 
 ## Why TCP -> USB is re-framed
 
@@ -44,7 +45,7 @@ Buffering the payload costs only a loopback copy (microseconds).
 
 Behavior of libaoahid `Channel::write` (`src/transport/channel.cpp`):
 
-- Each call is split into back-to-back full-packet transfers, followed by one short tail. It never shares a transfer with another call.
+- Each call is split into transfers of at most `transfer_bytes` (1 MiB here, see below), so a header or a payload up to `MAX_PAYLOAD` is one transfer. It never shares a transfer with another call.
 - With `zero_length_termination = 1`, a call whose length is a multiple of `wMaxPacketSize` ends with a zero-length packet (ZLP). Host adb does the same (`zero_mask`, `zlp_mask_`), and legacy adbd expects it (`reads_zero_packets = true`).
 
 ### Write timeouts

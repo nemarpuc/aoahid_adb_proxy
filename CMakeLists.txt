@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(aoahid_adb_proxy VERSION 2.0.2 LANGUAGES C CXX)
+project(aoahid_adb_proxy VERSION 2.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,7 +14,7 @@ if(NOT aoahid_FOUND)
   FetchContent_Declare(
     aoahid
     GIT_REPOSITORY https://github.com/nemarpuc/libaoahid.git
-    GIT_TAG        v3.0.4)
+    GIT_TAG        v3.0.5)
   FetchContent_MakeAvailable(aoahid)
 endif()
 
