@@ -60,9 +60,9 @@ With the whole phone on WinUSB, libusb treats it as one WinUSB device and reache
 
 Other manufacturers that ship their own dedicated USB driver can be handled the same way. A phone whose ADB interface is already WinUSB, like the HyperOS phone, needs none of this.
 
-After this, Windows `adb.exe` on its own no longer sees the phone over USB, Windows no longer shows the phone for file transfer (MTP), since the whole phone is on WinUSB, and tools that need the manufacturer's driver (such as Samsung Smart Switch) may stop working with it. adb keeps working through the proxy. To undo, repeat steps 1-3, or reinstall the manufacturer's USB driver.
+After this, Windows `adb.exe` still sees the phone over USB as before. Tools that need the manufacturer's driver (such as Samsung Smart Switch) may stop working with it, and Windows file transfer (MTP) may too; MTP was not checked. To undo, repeat steps 1-3, or reinstall the manufacturer's USB driver.
 
 ## Limits
 
 - One adb client at a time. Normally there is only one adb server, so this is enough.
-- Verified end to end on real hardware with a Samsung tablet and a HyperOS phone, each on Linux and on Windows, through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (`AOAHID_START_CURRENT_USB_MODE`, no accessory switch), so the accessory-mode path in `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
+- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (`AOAHID_START_CURRENT_USB_MODE`, no accessory switch), so the accessory-mode path in `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
