@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Docs: Windows `adb.exe` keeps seeing the phone after its driver is switched to WinUSB; the docs said it no longer did. Only tools that need the manufacturer's driver (and possibly MTP) are affected.
+- Docs: record the verified hardware (Samsung Galaxy Tab S11 and POCO F6 Pro, on Windows 10 x64 and Arch Linux, with WinUSB and libusbK).
+- The default branch is now `main`.
+
 ## 3.0.0
 
 - Requires libaoahid 4.0. The fallback fetch and CI use libaoahid 4.0.0, and an installed libaoahid 3.x is no longer accepted. The proxy's own API is unchanged.
