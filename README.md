@@ -2,7 +2,7 @@
 
 Use `adb` and [libaoahid](https://github.com/nemarpuc/libaoahid) on the same Android device at the same time.
 
-On Windows, a USB device can be opened by only one process (WinUSB is exclusive), so `adb.exe` and a libaoahid app cannot share a phone. This small C library runs inside your libaoahid app: the app owns the USB device, and the proxy forwards the ADB interface to a local TCP port that `adb connect` can use.
+On Windows, a USB device can be opened by only one process (WinUSB is exclusive), so `adb.exe` and a libaoahid app cannot share a phone. This small library (C API, C++11 implementation) runs inside your libaoahid app: the app owns the USB device, and the proxy forwards the ADB interface to a local TCP port that `adb connect` can use.
 
 ```text
 adb ──TCP──▶ [your app + aoahid_adb_proxy] ──USB bulk (ADB)──▶ adbd
@@ -92,7 +92,7 @@ Release archives contain this library, its header, and the example. At runtime, 
 
 ## Status
 
-- Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB readers and writers. Channel behavior was checked against the libaoahid 3.0.0 sources.
+- Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB readers and writers. Channel behavior was checked against the libaoahid sources.
 - Tested with a real host `adb` (37.0.0) through the proxy to a fake device. The fake enforces pre-2024 adbd write framing and models USB IN transfers, including payloads with no zero-length packet. `connect`, `devices`, `shell`, packet-aligned payloads (512 and 4096 bytes), 1 MiB payloads, and reconnect all work, with zero framing violations and zero would-stall reads. A negative control with oversized reads is correctly flagged. Everything also runs clean under ASan and UBSan.
 - **Verified end to end on real hardware** through [aoahid_player](https://github.com/nemarpuc/aoahid_player)'s ADB Bridge, with HID input running at the same time: a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux, with the phone's driver on WinUSB and on libusbK on Windows. That app keeps the phone in its current USB mode (no accessory switch), so the accessory-mode path of `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone came up with WinUSB and worked as plugged in; the Samsung tablet first needed its dedicated Samsung driver replaced with WinUSB (see [Troubleshooting](docs/USAGE.md#troubleshooting)).
 
