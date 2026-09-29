@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 3.0.1
 
 - Docs: Windows `adb.exe` keeps seeing the phone after its driver is switched to WinUSB; the docs said it no longer did. Only tools that need the manufacturer's driver (and possibly MTP) are affected.
 - Docs: record the verified hardware (Samsung Galaxy Tab S11 and POCO F6 Pro, on Windows 10 x64 and Arch Linux, with WinUSB and libusbK).
