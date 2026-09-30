@@ -110,13 +110,17 @@ bool send_all(socket_t sock, const uint8_t* buf, size_t len) {
 
 // A timeout keeps the queued prefix and resumes with the rest. If only the ZLP
 // is left pending there is no API to send it alone, so the session is dropped.
-bool usb_write_all(Session& s, const uint8_t* data, size_t len) {
+// `finish` is for a payload whose header is already on the wire: adbd reads
+// the next bytes as that payload, so it is written even while the session or
+// the proxy is ending. Only a timeout that moves nothing then gives up.
+bool usb_write_all(Session& s, const uint8_t* data, size_t len, bool finish) {
     size_t off = 0;
-    while (s.active()) {
+    while (finish || s.active()) {
         size_t written = 0;
         aoahid_result r = aoahid_channel_write(s.ctx->channel, data + off, len - off, &written, kUsbWriteMs);
         if (r == AOAHID_OK) return true;
         if (r != AOAHID_ERR_TIMEOUT || written == len - off) return false;
+        if (written == 0 && !s.active()) return false;
         off += written;
     }
     return false;
@@ -138,8 +142,8 @@ void tx_loop(Session* s) {
         uint32_t length = le32(header + 12);
         if ((command ^ 0xFFFFFFFFu) != le32(header + 20) || length > kMaxPayload) break;
         if (!recv_exact(*s, payload, length)) break;
-        if (!usb_write_all(*s, header, kHeaderSize)) break;
-        if (length && !usb_write_all(*s, payload, length)) break;
+        if (!usb_write_all(*s, header, kHeaderSize, false)) break;
+        if (length && !usb_write_all(*s, payload, length, true)) break;
     }
     s->alive = false;
 }

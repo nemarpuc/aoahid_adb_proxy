@@ -54,7 +54,7 @@ if (aoahid_adb_proxy_start(device, 6555, &proxy) == 0) {
 | `-1` | Null argument |
 | `-2` | ADB interface unavailable: adb server holds it, or USB debugging is off (the phone then has no ADB interface, in either USB mode). On Windows it can also be the phone's driver; see [Troubleshooting](docs/USAGE.md#troubleshooting) |
 | `-3` | Socket setup failed |
-| `-4` | Port in use |
+| `-4` | The port could not be bound: in use, reserved (Windows excluded port ranges), or not permitted |
 | `-5` | `listen` failed |
 | `-6` | Out of memory, or no thread could be started |
 

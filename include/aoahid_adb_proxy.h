@@ -19,7 +19,8 @@ typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
  *
  * Requirements:
  *  - The device's Context uses AOAHID_EVENT_INTERNAL_THREAD.
- *  - The device exposes an ADB interface (e.g. accessory + ADB, 18d1:2d01).
+ *  - The device exposes an ADB interface (USB debugging on; current USB mode or
+ *    accessory mode, e.g. 18d1:2d01).
  *  - No adb server holds that interface (run `adb kill-server` first).
  *  - Avoid ports 5555-5585 (adb's emulator scan range); 6555 is a good default.
  *
@@ -27,14 +28,16 @@ typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
  *  -1 null argument
  *  -2 ADB interface unavailable (held by adb, USB debugging off, no ADB interface)
  *  -3 socket setup failed
- *  -4 port in use
+ *  -4 the port could not be bound (in use, reserved, or not permitted)
  *  -5 listen failed
  *  -6 out of memory, or no thread could be started
  */
 int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy);
 
-/* Stops the proxy and releases the Channel and port. Returns within ~100 ms
- * (up to ~1 s if the device has stopped reading).
+/* Stops the proxy and releases the Channel and port. Returns within ~100 ms.
+ * A packet whose header already reached the device is finished first, so it
+ * takes up to ~1 s longer if the device has stopped reading, plus up to the
+ * Device's close_drain_timeout_ms while the Channel's transfers are cancelled.
  * Call before closing the device. NULL is ignored. */
 void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy);
 

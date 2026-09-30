@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- A payload whose header already reached the device is always written, even
+  when the client disconnects or `stop()` runs in between. Before, the header
+  could go out alone and adbd then read the next packet as its payload.
+- The example opens the phone in its current USB mode; switching to accessory
+  mode is the application's choice.
+- Docs: `-4` covers every bind failure (in use, reserved, not permitted); after
+  a USB read error the proxy stops serving and must be restarted; `stop()`
+  timing includes finishing a started payload and the Channel close; the adb
+  server has to be restarted after the proxy stops (with adb source
+  references).
+
 ## 3.0.1
 
 - Docs: Windows `adb.exe` keeps seeing the phone after its driver is switched to WinUSB; the docs said it no longer did. Only tools that need the manufacturer's driver (and possibly MTP) are affected.
