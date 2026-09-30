@@ -2,8 +2,12 @@
 
 ## Unreleased
 
-## 3.0.2
+## 3.0.3
 
+3.0.2 was tagged but never released: its header still said 3.0.1, so the
+version check in CI failed. 3.0.3 fixes the header and carries the 3.0.2 changes.
+
+- `AOAHID_ADB_PROXY_VERSION_PATCH` matches the project version again.
 - A payload whose header already reached the device is always written, even
   when the client disconnects or `stop()` runs in between. Before, the header
   could go out alone and adbd then read the next packet as its payload.
