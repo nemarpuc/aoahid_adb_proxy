@@ -38,7 +38,8 @@ void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy);
 aoahid_context_options co = {0};
 co.struct_size = sizeof co;
 co.event_mode = AOAHID_EVENT_INTERNAL_THREAD;          /* required */
-/* aoahid_context_create -> aoahid_accessory_start -> aoahid_device_open */
+/* aoahid_context_create -> aoahid_device_open (current USB mode, or after
+   aoahid_accessory_start if the device needs accessory mode) */
 
 aoahid_adb_proxy_context* proxy = NULL;
 if (aoahid_adb_proxy_start(device, 6555, &proxy) == 0) {

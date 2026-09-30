@@ -5,7 +5,7 @@
 | # | Action | Why |
 |---|---|---|
 | 1 | `adb kill-server` | While the adb server holds the ADB interface, your app cannot claim it. |
-| 2 | Start your app: switch to accessory mode, `aoahid_device_open`, `aoahid_adb_proxy_start` | Your app now owns the whole USB device. |
+| 2 | Start your app: `aoahid_device_open` (in the current USB mode, or after `aoahid_accessory_start`), then `aoahid_adb_proxy_start` | Your app now owns the whole USB device. |
 | 3 | `adb connect 127.0.0.1:6555` | adb restarts its server and reaches the phone over TCP. |
 
 On first use the phone may ask to allow USB debugging. This is the same RSA prompt as a direct USB connection.
@@ -15,7 +15,7 @@ When the adb server restarts in step 3, it also sees the phone on USB. It cannot
 ## Keeping other devices on adb
 
 - **Windows default adb:** there is no way to release a single device. Use `adb kill-server`. `adb detach` works only with the libusb backend (AOSP `client/usb_libusb.cpp`, `SupportsDetach`). Windows defaults to the AdbWinApi backend (`client/transport_usb.cpp`, `is_libusb_enabled`).
-- **`adb -s <serial> detach` before switching does not help.** Switching to accessory mode re-enumerates the phone. adb then sees a new device and claims it again.
+- **If your app switches to accessory mode, `adb -s <serial> detach` beforehand does not help.** The switch re-enumerates the phone. adb then sees a new device and claims it again.
 - **libusb backend:** start the server with every USB device detached, then attach only the devices adb should use:
   ```sh
   adb kill-server
@@ -65,4 +65,4 @@ After this, Windows `adb.exe` still sees the phone over USB as before. Tools tha
 ## Limits
 
 - One adb client at a time. Normally there is only one adb server, so this is enough.
-- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (`AOAHID_START_CURRENT_USB_MODE`, no accessory switch), so the accessory-mode path in `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
+- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (no `aoahid_accessory_start`), so the accessory-mode path in `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
