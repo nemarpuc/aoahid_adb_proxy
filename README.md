@@ -11,14 +11,13 @@ adb ──TCP──▶ [your app + aoahid_adb_proxy] ──USB bulk (ADB)──�
 
 On Windows this works with the phone's driver on WinUSB or libusbK, the drivers libusb-based tools such as libaoahid need.
 
-It is a **library**, not a standalone tool. `examples/basic_proxy.cpp` is a complete, runnable example. The proxy works whether the phone is opened in its current USB mode or after switching it to AOA accessory mode; either way USB debugging must be on.
+It is a **library**, not a standalone tool. `examples/basic_proxy.cpp` is a complete, runnable example. The proxy works in whatever USB mode the application opened the phone in: its current mode, or AOA accessory mode if the application chose to switch with `aoahid_accessory_start`. USB debugging must be on either way.
 
 ## Quick start
 
 ```sh
 adb kill-server                  # 1. release the phone from adb
 ./basic_proxy_example            # 2. your app: open the phone, start the proxy
-                                 #    (add --accessory to switch to accessory mode first)
 adb connect 127.0.0.1:6555       # 3. use adb over the proxy
 adb -s 127.0.0.1:6555 shell
 ```
@@ -96,7 +95,7 @@ Release archives contain this library, its header, and the example. At runtime, 
 
 - Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB readers and writers. Channel behavior was checked against the libaoahid sources.
 - Tested with a real host `adb` (37.0.0) through the proxy to a fake device. The fake enforces pre-2024 adbd write framing and models USB IN transfers, including payloads with no zero-length packet. `connect`, `devices`, `shell`, packet-aligned payloads (512 and 4096 bytes), 1 MiB payloads, and reconnect all work, with zero framing violations and zero would-stall reads. A negative control with oversized reads is correctly flagged. Everything also runs clean under ASan and UBSan.
-- **Verified end to end on real hardware** through [aoahid_player](https://github.com/nemarpuc/aoahid_player)'s ADB Bridge, with HID input running at the same time: a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux, with the phone's driver on WinUSB and on libusbK on Windows. That app keeps the phone in its current USB mode (no accessory switch), so the accessory-mode path of `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone came up with WinUSB and worked as plugged in; the Samsung tablet first needed its dedicated Samsung driver replaced with WinUSB (see [Troubleshooting](docs/USAGE.md#troubleshooting)).
+- **Verified end to end on real hardware** through [aoahid_player](https://github.com/nemarpuc/aoahid_player)'s ADB Bridge, with HID input running at the same time: a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux, with the phone's driver on WinUSB and on libusbK on Windows. That app keeps the phone in its current USB mode (no accessory switch), so the accessory-mode path was not part of it. On Windows the HyperOS phone came up with WinUSB and worked as plugged in; the Samsung tablet first needed its dedicated Samsung driver replaced with WinUSB (see [Troubleshooting](docs/USAGE.md#troubleshooting)).
 
 ## License
 

@@ -65,4 +65,4 @@ After this, Windows `adb.exe` still sees the phone over USB as before. Tools tha
 ## Limits
 
 - One adb client at a time. Normally there is only one adb server, so this is enough.
-- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (no `aoahid_accessory_start`), so the accessory-mode path in `examples/basic_proxy.cpp` was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
+- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (no `aoahid_accessory_start`), so the accessory-mode path was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.

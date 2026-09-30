@@ -1,23 +1,17 @@
 // Minimal host app: open the first phone with libaoahid and expose its ADB
-// interface on 127.0.0.1:6555. By default the phone stays in its current USB
-// mode; `--accessory` switches it to AOA accessory+ADB mode first. USB
-// debugging must be on in both cases.
+// interface on 127.0.0.1:6555. The phone is opened in whatever USB mode it is
+// in; switching to AOA accessory mode is the application's own choice
+// (aoahid_accessory_start) and not needed by the proxy. USB debugging must be on.
 //
 // Order: `adb kill-server` -> run this -> `adb connect 127.0.0.1:6555`
 // (see docs/USAGE.md). HID code would go where the example waits for Enter.
-#include <chrono>
 #include <cstdio>
 #include <cstring>
-#include <thread>
 
 #include "aoahid.h"
 #include "aoahid_adb_proxy.h"
 
 static const uint16_t kPort = 6555;
-
-static bool is_accessory(const aoahid_device_info* info) {
-    return info->vendor_id == 0x18D1 && info->product_id >= 0x2D00 && info->product_id <= 0x2D05;
-}
 
 static aoahid_device_options device_options() {
     aoahid_device_options o;
@@ -43,28 +37,7 @@ static aoahid_device_options device_options() {
     return o;
 }
 
-// Waits up to ~10 s for an accessory-mode device to (re)appear.
-static aoahid_discovery* wait_accessory(aoahid_context* ctx, const aoahid_device_info** out) {
-    for (int i = 0; i < 50; ++i) {
-        aoahid_discovery* d = nullptr;
-        if (aoahid_discover(ctx, 500, &d) == AOAHID_OK) {
-            for (size_t k = 0; k < aoahid_discovery_count(d); ++k) {
-                const aoahid_device_info* info = aoahid_discovery_get(d, k);
-                if (is_accessory(info)) {
-                    *out = info;
-                    return d;
-                }
-            }
-            aoahid_discovery_destroy(d);
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    }
-    return nullptr;
-}
-
-int main(int argc, char** argv) {
-    const bool accessory = argc > 1 && std::strcmp(argv[1], "--accessory") == 0;
-
+int main() {
     aoahid_context_options co;
     std::memset(&co, 0, sizeof(co));
     co.struct_size = sizeof(co);
@@ -81,35 +54,6 @@ int main(int argc, char** argv) {
         return 1;
     }
     const aoahid_device_info* phone = aoahid_discovery_get(d, 0);
-    if (accessory && !is_accessory(phone)) {
-        aoahid_accessory_options ao;
-        std::memset(&ao, 0, sizeof(ao));
-        ao.struct_size = sizeof(ao);
-        ao.strings.manufacturer = "aoahid";
-        ao.strings.model = "adb_proxy";
-        ao.strings.description = "aoahid_adb_proxy example";
-        aoahid_result r = aoahid_accessory_start(ctx, phone, &ao);
-        aoahid_discovery_destroy(d);
-        d = nullptr;
-        if (r != AOAHID_OK) {
-            std::fprintf(stderr, "accessory start failed: %d\n", static_cast<int>(r));
-            aoahid_context_destroy(ctx);
-            return 1;
-        }
-        d = wait_accessory(ctx, &phone);
-        if (!d) {
-            std::fprintf(stderr, "device did not reappear in accessory mode\n");
-            aoahid_context_destroy(ctx);
-            return 1;
-        }
-    }
-    if (accessory && phone->product_id != 0x2D01) {
-        std::fprintf(stderr, "no ADB interface (enable USB debugging): %04x\n", phone->product_id);
-        aoahid_discovery_destroy(d);
-        aoahid_context_destroy(ctx);
-        return 1;
-    }
-
     const aoahid_device_options dopt = device_options();
     aoahid_device* dev = nullptr;
     aoahid_result r = aoahid_device_open(ctx, phone, &dopt, &dev);
