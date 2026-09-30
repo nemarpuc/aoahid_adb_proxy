@@ -11,13 +11,14 @@ adb ──TCP──▶ [your app + aoahid_adb_proxy] ──USB bulk (ADB)──�
 
 On Windows this works with the phone's driver on WinUSB or libusbK, the drivers libusb-based tools such as libaoahid need.
 
-It is a **library**, not a standalone tool. `examples/basic_proxy.cpp` is a complete, runnable example.
+It is a **library**, not a standalone tool. `examples/basic_proxy.cpp` is a complete, runnable example. The proxy works whether the phone is opened in its current USB mode or after switching it to AOA accessory mode; either way USB debugging must be on.
 
 ## Quick start
 
 ```sh
 adb kill-server                  # 1. release the phone from adb
 ./basic_proxy_example            # 2. your app: open the phone, start the proxy
+                                 #    (add --accessory to switch to accessory mode first)
 adb connect 127.0.0.1:6555       # 3. use adb over the proxy
 adb -s 127.0.0.1:6555 shell
 ```
@@ -52,7 +53,7 @@ if (aoahid_adb_proxy_start(device, 6555, &proxy) == 0) {
 |---|---|
 | `0` | Success |
 | `-1` | Null argument |
-| `-2` | ADB interface unavailable: adb server holds it, USB debugging is off, or the device is not `18d1:2d01`. On Windows it can also be the phone's driver; see [Troubleshooting](docs/USAGE.md#troubleshooting) |
+| `-2` | ADB interface unavailable: adb server holds it, or USB debugging is off (the phone then has no ADB interface, in either USB mode). On Windows it can also be the phone's driver; see [Troubleshooting](docs/USAGE.md#troubleshooting) |
 | `-3` | Socket setup failed |
 | `-4` | Port in use |
 | `-5` | `listen` failed |

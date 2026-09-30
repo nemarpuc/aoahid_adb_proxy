@@ -1,5 +1,7 @@
-// Minimal host app: switch the first phone to AOA accessory+ADB mode, open it
-// with libaoahid, and expose its ADB interface on 127.0.0.1:6555.
+// Minimal host app: open the first phone with libaoahid and expose its ADB
+// interface on 127.0.0.1:6555. By default the phone stays in its current USB
+// mode; `--accessory` switches it to AOA accessory+ADB mode first. USB
+// debugging must be on in both cases.
 //
 // Order: `adb kill-server` -> run this -> `adb connect 127.0.0.1:6555`
 // (see docs/USAGE.md). HID code would go where the example waits for Enter.
@@ -60,7 +62,9 @@ static aoahid_discovery* wait_accessory(aoahid_context* ctx, const aoahid_device
     return nullptr;
 }
 
-int main() {
+int main(int argc, char** argv) {
+    const bool accessory = argc > 1 && std::strcmp(argv[1], "--accessory") == 0;
+
     aoahid_context_options co;
     std::memset(&co, 0, sizeof(co));
     co.struct_size = sizeof(co);
@@ -77,7 +81,7 @@ int main() {
         return 1;
     }
     const aoahid_device_info* phone = aoahid_discovery_get(d, 0);
-    if (!is_accessory(phone)) {
+    if (accessory && !is_accessory(phone)) {
         aoahid_accessory_options ao;
         std::memset(&ao, 0, sizeof(ao));
         ao.struct_size = sizeof(ao);
@@ -99,7 +103,7 @@ int main() {
             return 1;
         }
     }
-    if (phone->product_id != 0x2D01) {
+    if (accessory && phone->product_id != 0x2D01) {
         std::fprintf(stderr, "no ADB interface (enable USB debugging): %04x\n", phone->product_id);
         aoahid_discovery_destroy(d);
         aoahid_context_destroy(ctx);
