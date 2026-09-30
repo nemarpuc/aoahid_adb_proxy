@@ -80,6 +80,7 @@ int main() {
         std::printf("Press Enter to stop.\n");
         std::getchar();  // your HID loop (aoahid_node_*) goes here
         aoahid_adb_proxy_stop(proxy);
+        std::printf("Stopped. Run `adb kill-server` so adb sees the phone over USB again.\n");
     }
 
     aoahid_device_close(dev);

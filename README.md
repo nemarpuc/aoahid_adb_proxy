@@ -62,6 +62,7 @@ Rules:
 - Create the Context with `AOAHID_EVENT_INTERNAL_THREAD`. The proxy reads and writes from its own threads.
 - Avoid ports 5555-5585. adb scans them for emulators at startup. `6555` is used in the examples.
 - Call `stop` before `aoahid_device_close`.
+- After stopping, run `adb kill-server` so adb picks the phone up over USB again; see [docs/USAGE.md](docs/USAGE.md).
 
 ## Build
 

@@ -7,10 +7,14 @@
 | 1 | `adb kill-server` | While the adb server holds the ADB interface, your app cannot claim it. |
 | 2 | Start your app: `aoahid_device_open` (in the current USB mode, or after `aoahid_accessory_start`), then `aoahid_adb_proxy_start` | Your app now owns the whole USB device. |
 | 3 | `adb connect 127.0.0.1:6555` | adb restarts its server and reaches the phone over TCP. |
+| 4 | To stop: `adb disconnect 127.0.0.1:6555`, `aoahid_adb_proxy_stop`, `aoahid_device_close` | Releases the ADB interface. |
+| 5 | `adb kill-server` again | See below: without this, adb does not see the phone over USB again. |
 
 On first use the phone may ask to allow USB debugging. This is the same RSA prompt as a direct USB connection.
 
 When the adb server restarts in step 3, it also sees the phone on USB. It cannot open the phone because your app holds it, and the TCP connection works normally. To stop adb from probing USB at all, start the server with `ADB_USB=0`. This hides all other USB devices from adb too.
+
+**Restart the adb server after stopping the proxy.** An adb server that was started while your app held the ADB interface keeps failing to use the phone over USB even after the interface is free, so `adb devices` does not list it again. Run `adb kill-server` once the proxy is stopped and the device closed; the next adb command starts a fresh server that picks the phone up. aoahid_player does this automatically when a bridge is turned off or the phone is disconnected.
 
 ## Keeping other devices on adb
 
