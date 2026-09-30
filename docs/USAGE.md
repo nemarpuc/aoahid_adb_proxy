@@ -14,7 +14,16 @@ On first use the phone may ask to allow USB debugging. This is the same RSA prom
 
 When the adb server restarts in step 3, it also sees the phone on USB. It cannot open the phone because your app holds it, and the TCP connection works normally. To stop adb from probing USB at all, start the server with `ADB_USB=0`. This hides all other USB devices from adb too.
 
-**Restart the adb server after stopping the proxy.** An adb server that was started while your app held the ADB interface keeps failing to use the phone over USB even after the interface is free, so `adb devices` does not list it again. Run `adb kill-server` once the proxy is stopped and the device closed; the next adb command starts a fresh server that picks the phone up. aoahid_player does this automatically when a bridge is turned off or the phone is disconnected.
+**Restart the adb server after stopping the proxy.** Run `adb kill-server` once the proxy is stopped and the device closed; the next adb command starts a fresh server that picks the phone up over USB. aoahid_player does this automatically when a bridge is turned off or the phone is disconnected. The reason, from the adb sources (AOSP `platform/packages/modules/adb`, commit [`1cf2f017`](https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9)):
+
+- On Linux and macOS the adb server uses its libusb backend by default (`client/transport_usb.cpp`, `is_libusb_enabled`: on everywhere except Windows; `ADB_LIBUSB=1` or `ADB_LIBUSB=0` overrides it).
+- That backend only looks at a device when libusb reports it as arrived: once for each device present at startup (`LIBUSB_HOTPLUG_ENUMERATE`) and again only when it is plugged in (`client/usb_libusb_hotplug.cpp`, `usb_init_libusb_hotplug`, `process_device`).
+- Starting the transport opens the device and claims the ADB interface (`client/usb_libusb_device.cpp`, `LibUsbDevice::Open`, `ClaimInterface`). While your app holds the interface the claim fails, and the transport code just returns (`transport.cpp`, `fdevent_register_transport`: "failed to start."). Nothing retries it later.
+- So a server that saw the phone while the proxy held it never uses it over USB again, even after the interface is released, until the phone is replugged or the server restarts.
+
+Reproduced on Arch Linux with a Samsung Galaxy Tab S11 (adb 37.0.0): with the proxy running, `adb start-server` then `adb devices` listed nothing; after the proxy stopped, the same server still listed nothing; after `adb kill-server` the phone was listed again.
+
+On Windows the default backend (AdbWinApi, `client/usb_windows.cpp`) instead polls every second (`device_poll_thread`, `find_devices`) and tries again to open any interface it does not already hold, so by the source it should pick the phone up again without a restart. Restarting it does no harm; the Windows case has not been tested separately.
 
 ## Keeping other devices on adb
 
