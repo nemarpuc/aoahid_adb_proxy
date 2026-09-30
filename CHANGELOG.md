@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 3.0.2
+
 - A payload whose header already reached the device is always written, even
   when the client disconnects or `stop()` runs in between. Before, the header
   could go out alone and adbd then read the next packet as its payload.
