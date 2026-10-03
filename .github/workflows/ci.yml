@@ -24,6 +24,7 @@ jobs:
             os: ubuntu-22.04
             aoahid_pkg: linux-x86_64-ubuntu22.04-shared
             cmake_args: ""
+            test: true
           - name: linux-aarch64
             os: ubuntu-22.04
             aoahid_pkg: linux-aarch64-ubuntu22.04-shared
@@ -32,6 +33,7 @@ jobs:
             os: windows-latest
             aoahid_pkg: windows-x86_64-shared
             cmake_args: "-A x64"
+            test: true
           - name: windows-arm64
             os: windows-latest
             aoahid_pkg: windows-arm64-shared
@@ -82,6 +84,11 @@ jobs:
 
       - name: Build
         run: cmake --build build --config Release --parallel
+
+      # The other two entries are cross-built, so their programs cannot run here.
+      - name: Test
+        if: matrix.test
+        run: ctest --test-dir build -C Release --output-on-failure
 
       - name: Package
         shell: bash

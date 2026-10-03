@@ -66,7 +66,7 @@ int main() {
 
     aoahid_adb_proxy_context* proxy = nullptr;
     int pr = aoahid_adb_proxy_start(dev, kPort, &proxy);
-    if (pr != 0) {
+    if (pr != AOAHID_ADB_PROXY_OK) {
 #ifdef _WIN32
         std::fprintf(stderr,
                      "proxy start failed: %d (-2: run `adb kill-server` first, and check that "

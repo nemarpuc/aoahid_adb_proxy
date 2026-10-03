@@ -8,10 +8,27 @@ extern "C" {
 #endif
 
 #define AOAHID_ADB_PROXY_VERSION_MAJOR 3
-#define AOAHID_ADB_PROXY_VERSION_MINOR 0
-#define AOAHID_ADB_PROXY_VERSION_PATCH 3
+#define AOAHID_ADB_PROXY_VERSION_MINOR 1
+#define AOAHID_ADB_PROXY_VERSION_PATCH 0
 
 typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
+
+/* What aoahid_adb_proxy_start returns. The numbers are stable. */
+enum {
+    AOAHID_ADB_PROXY_OK = 0,
+    /* null argument */
+    AOAHID_ADB_PROXY_ERR_ARGUMENT = -1,
+    /* ADB interface unavailable (held by adb, USB debugging off, no ADB interface) */
+    AOAHID_ADB_PROXY_ERR_INTERFACE = -2,
+    /* socket setup failed */
+    AOAHID_ADB_PROXY_ERR_SOCKET = -3,
+    /* the port could not be bound (in use, reserved, or not permitted) */
+    AOAHID_ADB_PROXY_ERR_BIND = -4,
+    /* listen failed */
+    AOAHID_ADB_PROXY_ERR_LISTEN = -5,
+    /* out of memory, or no thread could be started */
+    AOAHID_ADB_PROXY_ERR_RESOURCE = -6
+};
 
 /*
  * Claims the device's ADB interface (0xFF/0x42/0x01) as a Channel and serves it
@@ -24,13 +41,8 @@ typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
  *  - No adb server holds that interface (run `adb kill-server` first).
  *  - Avoid ports 5555-5585 (adb's emulator scan range); 6555 is a good default.
  *
- * Returns 0 on success, or:
- *  -1 null argument
- *  -2 ADB interface unavailable (held by adb, USB debugging off, no ADB interface)
- *  -3 socket setup failed
- *  -4 the port could not be bound (in use, reserved, or not permitted)
- *  -5 listen failed
- *  -6 out of memory, or no thread could be started
+ * Returns AOAHID_ADB_PROXY_OK (0), or one of the AOAHID_ADB_PROXY_ERR_* values
+ * above. *out_proxy is NULL on every failure.
  */
 int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy);
 

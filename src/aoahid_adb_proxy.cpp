@@ -29,6 +29,9 @@ typedef size_t io_len_t;
 
 // AOSP packages/modules/adb: sizeof(amessage), MAX_PAYLOAD
 static const size_t kHeaderSize = 24;
+// amessage fields: data_length, and magic (command ^ 0xffffffff)
+static const size_t kLengthOffset = 12;
+static const size_t kMagicOffset = 20;
 static const uint32_t kMaxPayload = 1024 * 1024;
 static const uint32_t kPollMs = 100;
 // adbd keeps USB reads queued, so a pool that stays full this long means a stuck device.
@@ -139,8 +142,8 @@ void tx_loop(Session* s) {
     uint8_t header[kHeaderSize];
     while (recv_exact(*s, header, kHeaderSize)) {
         uint32_t command = le32(header);
-        uint32_t length = le32(header + 12);
-        if ((command ^ 0xFFFFFFFFu) != le32(header + 20) || length > kMaxPayload) break;
+        uint32_t length = le32(header + kLengthOffset);
+        if ((command ^ 0xFFFFFFFFu) != le32(header + kMagicOffset) || length > kMaxPayload) break;
         if (!recv_exact(*s, payload, length)) break;
         if (!usb_write_all(*s, header, kHeaderSize, false)) break;
         if (length && !usb_write_all(*s, payload, length, true)) break;
@@ -176,7 +179,7 @@ void rx_loop(Session* s) {
     while (s->active()) {
         if (c->rx_have < kHeaderSize) {
             if (!usb_read_to(*s, kHeaderSize)) break;
-            uint32_t length = le32(&c->rx_packet[12]);
+            uint32_t length = le32(&c->rx_packet[kLengthOffset]);
             if (length > kMaxPayload) {
                 c->running = false;  // framing lost; host adb would reject it too
                 break;
@@ -228,15 +231,27 @@ void accept_loop(aoahid_adb_proxy_context* ctx) {
     }
 }
 
+// Releases whatever a failed start had acquired.
+int fail_start(int err, aoahid_adb_proxy_context* ctx, socket_t sock, aoahid_channel* channel) {
+    delete ctx;
+    if (sock != INVALID_SOCKET) closesocket(sock);
+    if (channel) aoahid_channel_close(channel);
+#ifdef _WIN32
+    WSACleanup();
+#endif
+    return err;
+}
+
 }  // namespace
 
 int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy) {
-    if (!device || !out_proxy) return -1;
+    if (!out_proxy) return AOAHID_ADB_PROXY_ERR_ARGUMENT;
     *out_proxy = nullptr;
+    if (!device) return AOAHID_ADB_PROXY_ERR_ARGUMENT;
 
 #ifdef _WIN32
     WSADATA wsa;
-    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return -3;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return AOAHID_ADB_PROXY_ERR_SOCKET;
 #endif
 
     aoahid_channel_options opt;
@@ -255,64 +270,48 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     opt.zero_length_termination = 1;
 
     aoahid_channel* channel = nullptr;
-    aoahid_adb_proxy_context* ctx = nullptr;
-    int err = 0;
-    socket_t sock = INVALID_SOCKET;
     if (aoahid_channel_open(device, &opt, &channel) != AOAHID_OK) {
-        err = -2;
-    } else if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET) {
-        err = -3;
-    } else {
-#ifndef _WIN32
-        // Windows SO_REUSEADDR would let another process steal the port.
-        int one = 1;
-        setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
-#endif
-        sockaddr_in addr;
-        std::memset(&addr, 0, sizeof(addr));
-        addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-        addr.sin_port = htons(tcp_port);
-        if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
-            err = -4;
-        } else if (listen(sock, 1) == SOCKET_ERROR) {
-            err = -5;
-        } else {
-            ctx = new (std::nothrow) aoahid_adb_proxy_context();
-            if (!ctx) {
-                err = -6;
-            } else {
-                ctx->channel = channel;
-                ctx->listen_sock = sock;
-                ctx->running = true;
-                // Left uninitialized, so only the pages a payload uses become resident.
-                ctx->rx_packet.reset(new (std::nothrow) uint8_t[kHeaderSize + kMaxPayload]);
-                ctx->tx_payload.reset(new (std::nothrow) uint8_t[kMaxPayload]);
-                ctx->rx_have = 0;
-                ctx->rx_need = 0;
-                if (!ctx->rx_packet || !ctx->tx_payload) {
-                    err = -6;
-                } else {
-                    try {
-                        ctx->accept_thread = std::thread(accept_loop, ctx);
-                    } catch (...) {
-                        err = -6;
-                    }
-                }
-            }
-        }
+        return fail_start(AOAHID_ADB_PROXY_ERR_INTERFACE, nullptr, INVALID_SOCKET, channel);
     }
-    if (err != 0) {
-        delete ctx;
-        if (sock != INVALID_SOCKET) closesocket(sock);
-        if (channel) aoahid_channel_close(channel);
-#ifdef _WIN32
-        WSACleanup();
+    const socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock == INVALID_SOCKET) return fail_start(AOAHID_ADB_PROXY_ERR_SOCKET, nullptr, sock, channel);
+#ifndef _WIN32
+    // Windows SO_REUSEADDR would let another process steal the port.
+    int one = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
 #endif
-        return err;
+    sockaddr_in addr;
+    std::memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(tcp_port);
+    if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
+        return fail_start(AOAHID_ADB_PROXY_ERR_BIND, nullptr, sock, channel);
+    }
+    if (listen(sock, 1) == SOCKET_ERROR) {
+        return fail_start(AOAHID_ADB_PROXY_ERR_LISTEN, nullptr, sock, channel);
+    }
+
+    aoahid_adb_proxy_context* ctx = new (std::nothrow) aoahid_adb_proxy_context();
+    if (!ctx) return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, nullptr, sock, channel);
+    ctx->channel = channel;
+    ctx->listen_sock = sock;
+    ctx->running = true;
+    // Left uninitialized, so only the pages a payload uses become resident.
+    ctx->rx_packet.reset(new (std::nothrow) uint8_t[kHeaderSize + kMaxPayload]);
+    ctx->tx_payload.reset(new (std::nothrow) uint8_t[kMaxPayload]);
+    ctx->rx_have = 0;
+    ctx->rx_need = 0;
+    if (!ctx->rx_packet || !ctx->tx_payload) {
+        return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, ctx, sock, channel);
+    }
+    try {
+        ctx->accept_thread = std::thread(accept_loop, ctx);
+    } catch (...) {
+        return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, ctx, sock, channel);
     }
     *out_proxy = ctx;
-    return 0;
+    return AOAHID_ADB_PROXY_OK;
 }
 
 void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy) {

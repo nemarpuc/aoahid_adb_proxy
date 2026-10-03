@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 3.1.0
+
+- The header names the `aoahid_adb_proxy_start` results: `AOAHID_ADB_PROXY_OK`
+  and `AOAHID_ADB_PROXY_ERR_ARGUMENT`, `_INTERFACE`, `_SOCKET`, `_BIND`,
+  `_LISTEN`, `_RESOURCE`. The numbers (`0`, `-1` to `-6`) are unchanged.
+- `*out_proxy` is set to `NULL` when `device` is null too; before, that one
+  failure left it untouched.
+- Tests: `tests/test_proxy.cpp` runs the proxy against an in-memory Channel
+  and a loopback TCP client, with no phone. Built by default
+  (`AOAHID_ADB_PROXY_BUILD_TESTS`), run with `ctest`, and run in CI on Linux
+  and Windows x86_64.
+- No behavior change otherwise: the ADB header offsets are named constants and
+  `start` releases what it acquired through one helper.
+
 ## 3.0.3
 
 - A payload whose header already reached the device is always written, even

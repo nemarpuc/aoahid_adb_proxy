@@ -42,21 +42,23 @@ co.event_mode = AOAHID_EVENT_INTERNAL_THREAD;          /* required */
    aoahid_accessory_start if the device needs accessory mode) */
 
 aoahid_adb_proxy_context* proxy = NULL;
-if (aoahid_adb_proxy_start(device, 6555, &proxy) == 0) {
+if (aoahid_adb_proxy_start(device, 6555, &proxy) == AOAHID_ADB_PROXY_OK) {
     /* HID work with aoahid_node_* runs here, unaffected */
     aoahid_adb_proxy_stop(proxy);                       /* before aoahid_device_close */
 }
 ```
 
-| Return | Meaning |
-|---|---|
-| `0` | Success |
-| `-1` | Null argument |
-| `-2` | ADB interface unavailable: adb server holds it, or USB debugging is off (the phone then has no ADB interface, in either USB mode). On Windows it can also be the phone's driver; see [Troubleshooting](docs/USAGE.md#troubleshooting) |
-| `-3` | Socket setup failed |
-| `-4` | The port could not be bound: in use, reserved (Windows excluded port ranges), or not permitted |
-| `-5` | `listen` failed |
-| `-6` | Out of memory, or no thread could be started |
+| Return | Value | Meaning |
+|---|---|---|
+| `AOAHID_ADB_PROXY_OK` | `0` | Success |
+| `AOAHID_ADB_PROXY_ERR_ARGUMENT` | `-1` | Null argument |
+| `AOAHID_ADB_PROXY_ERR_INTERFACE` | `-2` | ADB interface unavailable: adb server holds it, or USB debugging is off (the phone then has no ADB interface, in either USB mode). On Windows it can also be the phone's driver; see [Troubleshooting](docs/USAGE.md#troubleshooting) |
+| `AOAHID_ADB_PROXY_ERR_SOCKET` | `-3` | Socket setup failed |
+| `AOAHID_ADB_PROXY_ERR_BIND` | `-4` | The port could not be bound: in use, reserved (Windows excluded port ranges), or not permitted |
+| `AOAHID_ADB_PROXY_ERR_LISTEN` | `-5` | `listen` failed |
+| `AOAHID_ADB_PROXY_ERR_RESOURCE` | `-6` | Out of memory, or no thread could be started |
+
+The numbers are stable; the names were added in 3.1.0. `*out_proxy` is `NULL` on every failure.
 
 Rules:
 - Create the Context with `AOAHID_EVENT_INTERNAL_THREAD`. The proxy reads and writes from its own threads.
@@ -77,6 +79,14 @@ cmake --build build --config Release
 cmake -S . -B build && cmake --build build
 ```
 
+Tests are built by default and need no phone: the proxy source runs against an in-memory Channel and a loopback TCP client.
+
+```sh
+ctest --test-dir build -C Release --output-on-failure
+```
+
+`-DAOAHID_ADB_PROXY_BUILD_TESTS=OFF` and `-DAOAHID_ADB_PROXY_BUILD_EXAMPLES=OFF` skip the tests and the example.
+
 Release archives contain this library, its header, and the example. At runtime, place the libaoahid runtime (`aoahid` and `libusb-1.0`) next to them.
 
 ## Latency
@@ -95,6 +105,7 @@ Release archives contain this library, its header, and the example. At runtime, 
 ## Status
 
 - Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB readers and writers. Channel behavior was checked against the libaoahid sources.
+- CI runs `tests/test_proxy.cpp` on Linux and Windows x86_64: start failures, the Channel options, header and payload as separate USB writes, USB packets arriving in pieces, rejected client headers, a reconnect in the middle of a packet, and a lost Channel.
 - Tested with a real host `adb` (37.0.0) through the proxy to a fake device. The fake enforces pre-2024 adbd write framing and models USB IN transfers, including payloads with no zero-length packet. `connect`, `devices`, `shell`, packet-aligned payloads (512 and 4096 bytes), 1 MiB payloads, and reconnect all work, with zero framing violations and zero would-stall reads. A negative control with oversized reads is correctly flagged. Everything also runs clean under ASan and UBSan.
 - **Verified end to end on real hardware** through [aoahid_player](https://github.com/nemarpuc/aoahid_player)'s ADB Bridge, with HID input running at the same time: a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux, with the phone's driver on WinUSB and on libusbK on Windows. That app keeps the phone in its current USB mode (no accessory switch), so the accessory-mode path was not part of it. On Windows the HyperOS phone came up with WinUSB and worked as plugged in; the Samsung tablet first needed its dedicated Samsung driver replaced with WinUSB (see [Troubleshooting](docs/USAGE.md#troubleshooting)).
 
