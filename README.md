@@ -9,7 +9,7 @@ adb ──TCP──▶ [your app + aoahid_adb_proxy] ──USB bulk (ADB)──�
                          └────────── USB EP0 (AOA HID) ──────▶ input
 ```
 
-On Windows this works with the phone's driver on WinUSB or libusbK, the drivers libusb-based tools such as libaoahid need.
+On Windows this works with the phone's driver on WinUSB or libusbK, the drivers libusb-based tools such as libaoahid need. The ADB interface is a bulk interface, so the whole device has to be on one of them. If the manufacturer ships its own driver (Samsung is the case verified here), replacing it with WinUSB in [Zadig](https://zadig.akeo.ie/) may fix a failing start; see [Troubleshooting](docs/USAGE.md#troubleshooting). HID input alone does not need the change.
 
 It is a **library**, not a standalone tool. `examples/basic_proxy.cpp` is a complete, runnable example. The proxy works in whatever USB mode the application opened the phone in: its current mode, or AOA accessory mode if the application chose to switch with `aoahid_accessory_start`. USB debugging must be on either way.
 

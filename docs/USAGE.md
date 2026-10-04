@@ -47,7 +47,7 @@ On startup, the adb server scans ports 5555-5585 for emulators (AOSP `client/tra
 | Symptom | Cause / fix |
 |---|---|
 | `start` returns `-2` (`AOAHID_ADB_PROXY_ERR_INTERFACE`) | The adb server holds the interface: run `adb kill-server`. Or USB debugging is off, so the device came up as `2d00` (no ADB). |
-| Windows: `start` returns `-2`, and `aoahid_last_error()->libusb_status` is `-12` | The phone's driver is not one libusb can use (WinUSB, libusbK or libusb0). Some manufacturers install their own driver by default. Switch the phone to WinUSB with Zadig; see [the Samsung example](#example-samsung-on-windows). |
+| Windows: `start` returns `-2`, and `aoahid_last_error()->libusb_status` is `-12` | The phone's driver is not one libusb can use (WinUSB, libusbK or libusb0). Some manufacturers install their own driver by default. Switching the whole phone to WinUSB with Zadig may fix it; it is not guaranteed on every phone. See [the Samsung example](#example-samsung-on-windows), the case verified. |
 | `start` returns `-4` (`AOAHID_ADB_PROXY_ERR_BIND`) | The port could not be bound: another program uses it, Windows reserves it (`netsh interface ipv4 show excludedportrange protocol=tcp`), or it needs privileges. Pick another port. |
 | `offline` after `adb connect` | Accept the prompt on the phone, then `adb disconnect` and reconnect. |
 | Connection drops | If a USB write failed or stalled, the proxy keeps listening: run `adb connect` again. If reading from the phone failed (unplugged, or any USB read error), the proxy stops serving; the port still accepts connections but nothing answers, so call `aoahid_adb_proxy_stop`, reopen the device if it was lost, and start the proxy again. |
