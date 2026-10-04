@@ -15,7 +15,7 @@ accept : poll(100 ms) -> accept -> TCP_NODELAY
 - Waits return as soon as data is ready. The 100 ms timeout only bounds how long `stop` takes (up to 1 s if the device has stopped reading).
 - All socket waits use `poll` (`select` on Windows). On Windows, `SO_RCVTIMEO` does not apply to `accept`, and a socket whose receive timed out is left in an undefined state. Unlike `select`, `poll` has no `FD_SETSIZE` limit on the descriptor value, which a host application with many open files can exceed.
 - If a client stops reading and rx blocks in `send`, the socket is `shutdown` after tx exits.
-- The accept thread closes the listening socket when it leaves its loop, which happens on `stop` and when the Channel is lost (a failed USB read, or an IN header announcing more than `MAX_PAYLOAD`). After a loss the port therefore refuses new connections instead of accepting ones nothing would answer.
+- When the Channel is lost (a failed USB read, or an IN header announcing more than `MAX_PAYLOAD`), the accept thread keeps running and closes every new connection as soon as it is accepted. The port is not released before `stop`: adb may still list `127.0.0.1:<port>` as this device, and a port that became free could be bound by another local program, which adb would then talk to as if it were the device.
 - Sends use `MSG_NOSIGNAL` (`SO_NOSIGPIPE` where that is the mechanism), so a client that disconnects while the device is still sending ends the session with `EPIPE` instead of killing the host process with `SIGPIPE`.
 
 ## Why TCP -> USB is re-framed

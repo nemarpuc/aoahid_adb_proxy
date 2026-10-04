@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 3.1.2
+
+- After the Channel is lost the proxy keeps its port and closes every new
+  connection at once. 3.1.1 closed the port instead, which let another local
+  program bind it while adb still listed `127.0.0.1:<port>` as the device, and
+  answer in the device's place. Use 3.1.2 instead of 3.1.1. `adb connect`
+  still fails promptly rather than hanging, as in 3.1.1.
+- No API or ABI change.
+
 ## 3.1.1
 
 - When reading from the device fails (unplugged, or any USB read error), the
