@@ -49,9 +49,6 @@ struct aoahid_adb_proxy_context {
     aoahid_channel* channel;
     socket_t listen_sock;
     std::atomic<bool> running;
-    // Set by the rx thread when the Channel can no longer be read. The proxy
-    // then serves nothing, but keeps its port until stop.
-    std::atomic<bool> lost;
     std::thread accept_thread;
     // USB -> TCP packet being assembled; survives a session so a new client
     // never starts mid-packet. Only the rx thread touches it while it runs.
@@ -69,7 +66,7 @@ struct Session {
     socket_t sock;
     std::atomic<bool> alive;
 
-    bool active() const { return alive.load() && ctx->running.load() && !ctx->lost.load(); }
+    bool active() const { return alive.load() && ctx->running.load(); }
 };
 
 bool wait_readable(socket_t sock, uint32_t ms) {
@@ -166,7 +163,7 @@ bool usb_read_to(Session& s, size_t need) {
             aoahid_channel_read(c->channel, &c->rx_packet[c->rx_have], need - c->rx_have, &got, kPollMs);
         if (r == AOAHID_ERR_TIMEOUT) continue;
         if (r != AOAHID_OK) {
-            c->lost = true;
+            c->running = false;  // the Channel is lost
             return false;
         }
         c->rx_have += got;
@@ -184,7 +181,7 @@ void rx_loop(Session* s) {
             if (!usb_read_to(*s, kHeaderSize)) break;
             uint32_t length = le32(&c->rx_packet[kLengthOffset]);
             if (length > kMaxPayload) {
-                c->lost = true;  // framing lost; host adb would reject it too
+                c->running = false;  // framing lost; host adb would reject it too
                 break;
             }
             c->rx_need = kHeaderSize + length;
@@ -230,16 +227,11 @@ void accept_loop(aoahid_adb_proxy_context* ctx) {
         if (!wait_readable(ctx->listen_sock, kPollMs)) continue;
         socket_t client = accept(ctx->listen_sock, nullptr, nullptr);
         if (client == INVALID_SOCKET) continue;
-        if (ctx->lost) {
-            // Nothing can be served any more, so the client is turned away at
-            // once. The port itself stays bound until stop: adb may still know
-            // it as this device, and a freed port could be bound by another
-            // program that then answers in the device's place.
-            closesocket(client);
-            continue;
-        }
         serve(ctx, client);
     }
+    // Stopped, or the Channel is lost: close the port so a new client is
+    // refused at once instead of accepted and never answered.
+    closesocket(ctx->listen_sock);
 }
 
 // Releases whatever a failed start had acquired.
@@ -308,7 +300,6 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     ctx->channel = channel;
     ctx->listen_sock = sock;
     ctx->running = true;
-    ctx->lost = false;
     // Left uninitialized, so only the pages a payload uses become resident.
     ctx->rx_packet.reset(new (std::nothrow) uint8_t[kHeaderSize + kMaxPayload]);
     ctx->tx_payload.reset(new (std::nothrow) uint8_t[kMaxPayload]);
@@ -329,8 +320,8 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
 void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy) {
     if (!proxy) return;
     proxy->running = false;
+    // The accept thread closes the listening socket as it leaves.
     if (proxy->accept_thread.joinable()) proxy->accept_thread.join();
-    closesocket(proxy->listen_sock);
     aoahid_channel_close(proxy->channel);
     delete proxy;
 #ifdef _WIN32

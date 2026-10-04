@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 3.1.3
+
+- Back to the 3.1.1 behavior: when the Channel is lost the proxy closes its
+  port, so `adb connect` is refused. 3.1.2 kept the port bound and closed
+  each new connection, to keep another local program from binding the port
+  while adb still listed it as the device. That is left to adb's user: adb
+  does not verify what answers at an address, and the port is free after
+  `aoahid_adb_proxy_stop` in any case. Closing the port needs no extra state.
+- No API or ABI change.
+
 ## 3.1.2
 
 - After the Channel is lost the proxy keeps its port and closes every new

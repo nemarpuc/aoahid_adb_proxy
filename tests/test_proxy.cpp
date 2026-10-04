@@ -200,19 +200,18 @@ Bytes receive(socket_t sock, size_t want) {
     return out;
 }
 
+bool can_connect(uint16_t port) {
+    socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in addr = loopback(port);
+    const bool connected =
+        sock != INVALID_SOCKET && connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
+    if (sock != INVALID_SOCKET) closesocket(sock);
+    return connected;
+}
+
 bool closed_by_proxy(socket_t sock) {
     char byte = 0;
     return recv(sock, &byte, 1, 0) == 0;
-}
-
-// The proxy ended the connection without serving it: an orderly close, or a
-// reset when the client had already sent something. Bounded, so the client's
-// own 5 s receive timeout does not count as being turned away.
-bool turned_away(socket_t sock) {
-    char byte = 0;
-    const auto start = std::chrono::steady_clock::now();
-    const auto n = recv(sock, &byte, 1, 0);
-    return n <= 0 && std::chrono::steady_clock::now() - start < std::chrono::seconds(2);
 }
 
 // The proxy serves one client at a time and takes up to ~100 ms to notice
@@ -343,29 +342,14 @@ void test_reconnect_mid_packet(uint16_t port) {
     closesocket(second);
 }
 
-// A failed USB read ends the session and the proxy stops serving. It keeps the
-// port, so nothing else can bind it while adb still knows it as this device,
-// and turns every later client away at once without touching the device.
+// A failed USB read ends the session and the proxy stops serving: the port is
+// closed, so a new client is refused instead of accepted and never answered.
 void test_channel_lost(uint16_t port) {
     socket_t client = connect_and_sync(port);
     device_fails(AOAHID_ERR_NO_DEVICE);
     CHECK(closed_by_proxy(client));
     closesocket(client);
-
-    const size_t before = write_count();
-    for (int attempt = 0; attempt < 3; ++attempt) {
-        socket_t late = connect_client(port);
-        CHECK(send_bytes(late, header(0)));
-        CHECK(turned_away(late));
-        closesocket(late);
-    }
-    CHECK(write_count() == before);
-
-    // Still bound by the proxy: binding it again fails.
-    socket_t other = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in addr = loopback(port);
-    CHECK(bind(other, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) != 0);
-    closesocket(other);
+    CHECK(eventually([&] { return !can_connect(port); }));
 }
 
 }  // namespace
