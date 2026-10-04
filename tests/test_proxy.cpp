@@ -200,6 +200,15 @@ Bytes receive(socket_t sock, size_t want) {
     return out;
 }
 
+bool can_connect(uint16_t port) {
+    socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in addr = loopback(port);
+    const bool connected =
+        sock != INVALID_SOCKET && connect(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == 0;
+    if (sock != INVALID_SOCKET) closesocket(sock);
+    return connected;
+}
+
 bool closed_by_proxy(socket_t sock) {
     char byte = 0;
     return recv(sock, &byte, 1, 0) == 0;
@@ -333,12 +342,14 @@ void test_reconnect_mid_packet(uint16_t port) {
     closesocket(second);
 }
 
-// A failed USB read ends the session and the proxy stops serving.
+// A failed USB read ends the session and the proxy stops serving: the port is
+// closed, so a new client is refused instead of accepted and never answered.
 void test_channel_lost(uint16_t port) {
     socket_t client = connect_and_sync(port);
     device_fails(AOAHID_ERR_NO_DEVICE);
     CHECK(closed_by_proxy(client));
     closesocket(client);
+    CHECK(eventually([&] { return !can_connect(port); }));
 }
 
 }  // namespace

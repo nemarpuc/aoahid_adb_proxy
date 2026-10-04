@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 3.1.1
+
+- When reading from the device fails (unplugged, or any USB read error), the
+  proxy now closes its port as it stops serving. `adb connect` is refused at
+  once; before, the port kept accepting connections that nothing answered
+  until `aoahid_adb_proxy_stop` was called. `stop` is still required to
+  release the Channel. A test covers it.
+- The libaoahid source fallback (`FetchContent`) is pinned to the commit of
+  `v4.0.0` instead of the tag name.
+- Added `docs/INTERNALS.md`: invariants, thread and shutdown order, the
+  Channel contract the proxy relies on, and how to test and vendor it.
+- No API or ABI change.
+
 ## 3.1.0
 
 - The header names the `aoahid_adb_proxy_start` results: `AOAHID_ADB_PROXY_OK`

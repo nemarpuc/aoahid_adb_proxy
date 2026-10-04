@@ -9,7 +9,7 @@ extern "C" {
 
 #define AOAHID_ADB_PROXY_VERSION_MAJOR 3
 #define AOAHID_ADB_PROXY_VERSION_MINOR 1
-#define AOAHID_ADB_PROXY_VERSION_PATCH 0
+#define AOAHID_ADB_PROXY_VERSION_PATCH 1
 
 typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
 
@@ -43,6 +43,10 @@ enum {
  *
  * Returns AOAHID_ADB_PROXY_OK (0), or one of the AOAHID_ADB_PROXY_ERR_* values
  * above. *out_proxy is NULL on every failure.
+ *
+ * If reading from the device fails later (unplugged, or any USB read error),
+ * the proxy stops serving and closes the port, so `adb connect` is refused.
+ * aoahid_adb_proxy_stop must still be called to release the rest.
  */
 int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy);
 

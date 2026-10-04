@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(aoahid_adb_proxy VERSION 3.1.0 LANGUAGES C CXX)
+project(aoahid_adb_proxy VERSION 3.1.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,7 +19,7 @@ if(NOT aoahid_FOUND)
   FetchContent_Declare(
     aoahid
     GIT_REPOSITORY https://github.com/nemarpuc/libaoahid.git
-    GIT_TAG        v4.0.0)
+    GIT_TAG        ef7b3d1e446123e0ee11a8c6cc167daaed893a36) # v4.0.0, by commit so a moved tag cannot change it
   FetchContent_MakeAvailable(aoahid)
 endif()
 

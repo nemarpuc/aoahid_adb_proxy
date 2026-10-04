@@ -100,6 +100,7 @@ Release archives contain this library, its header, and the example. At runtime, 
 
 - [docs/USAGE.md](docs/USAGE.md): step-by-step usage, keeping other devices on adb, troubleshooting
 - [docs/DESIGN.md](docs/DESIGN.md): how it works, with AOSP references
+- [docs/INTERNALS.md](docs/INTERNALS.md): for maintainers: state and threads, stop order, the Channel contract, tests, vendoring
 - [CHANGELOG.md](CHANGELOG.md)
 
 ## Status

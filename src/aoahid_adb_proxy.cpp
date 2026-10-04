@@ -229,6 +229,9 @@ void accept_loop(aoahid_adb_proxy_context* ctx) {
         if (client == INVALID_SOCKET) continue;
         serve(ctx, client);
     }
+    // Stopped, or the Channel is lost: close the port so a new client is
+    // refused at once instead of accepted and never answered.
+    closesocket(ctx->listen_sock);
 }
 
 // Releases whatever a failed start had acquired.
@@ -317,8 +320,8 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
 void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy) {
     if (!proxy) return;
     proxy->running = false;
+    // The accept thread closes the listening socket as it leaves.
     if (proxy->accept_thread.joinable()) proxy->accept_thread.join();
-    closesocket(proxy->listen_sock);
     aoahid_channel_close(proxy->channel);
     delete proxy;
 #ifdef _WIN32
