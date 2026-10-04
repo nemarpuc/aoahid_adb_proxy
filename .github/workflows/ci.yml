@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  AOAHID_VERSION: 4.0.0
+  AOAHID_VERSION: 4.1.0
 
 jobs:
   build:
@@ -29,6 +29,16 @@ jobs:
             os: ubuntu-22.04
             aoahid_pkg: linux-aarch64-ubuntu22.04-shared
             cmake_args: "-DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++"
+          - name: macos-arm64
+            os: macos-15
+            aoahid_pkg: macos-arm64-shared
+            cmake_args: ""
+            test: true
+          - name: macos-x86_64
+            os: macos-15-intel
+            aoahid_pkg: macos-x86_64-shared
+            cmake_args: ""
+            test: true
           - name: windows-x86_64
             os: windows-latest
             aoahid_pkg: windows-x86_64-shared
@@ -64,7 +74,8 @@ jobs:
           pkg="libaoahid-${AOAHID_VERSION}-${{ matrix.aoahid_pkg }}"
           if [[ "$RUNNER_OS" == "Windows" ]]; then ext=zip; else ext=tar.gz; fi
           gh release download "v${AOAHID_VERSION}" -R nemarpuc/libaoahid -p "$pkg.$ext" -p SHA256SUMS -D deps
-          (cd deps && grep " $pkg.$ext\$" SHA256SUMS | sha256sum -c -)
+          if command -v sha256sum >/dev/null; then sum=(sha256sum -c -); else sum=(shasum -a 256 -c -); fi
+          (cd deps && grep " $pkg.$ext\$" SHA256SUMS | "${sum[@]}")
           if [[ "$ext" == zip ]]; then unzip -q "deps/$pkg.$ext" -d deps; else tar -xzf "deps/$pkg.$ext" -C deps; fi
           echo "AOAHID_PREFIX=$(pwd -W 2>/dev/null || pwd)/deps/$pkg" >> "$GITHUB_ENV"
 

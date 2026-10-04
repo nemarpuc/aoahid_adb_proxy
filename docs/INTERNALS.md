@@ -151,8 +151,9 @@ arbitrary TCP segmentation, USB to TCP reassembly, a bad client header, a
 reconnect in the middle of a packet, a lost Channel, and that the port is free
 after `stop`.
 
-Run it with `ctest --test-dir build`. CI runs it on Linux and Windows x86_64
-and builds, without running, the cross-compiled targets.
+Run it with `ctest --test-dir build`. CI runs it on Linux, macOS (arm64 and
+x86_64), and Windows x86_64 and builds, without running, the cross-compiled
+targets.
 
 Not covered by a test: a USB write that times out, and the `finish` path.
 

@@ -106,8 +106,9 @@ Release archives contain this library, its header, and the example. At runtime, 
 ## Status
 
 - Framing was checked against AOSP adb sources: current adbd, pre-2024 adbd, and legacy adbd, as well as the host USB readers and writers. Channel behavior was checked against the libaoahid sources.
-- CI runs `tests/test_proxy.cpp` on Linux and Windows x86_64: start failures, the Channel options, header and payload as separate USB writes, USB packets arriving in pieces, rejected client headers, a reconnect in the middle of a packet, and a lost Channel.
+- CI runs `tests/test_proxy.cpp` on Linux, macOS (arm64 and x86_64), and Windows x86_64: start failures, the Channel options, header and payload as separate USB writes, USB packets arriving in pieces, rejected client headers, a reconnect in the middle of a packet, and a lost Channel.
 - Tested with a real host `adb` (37.0.0) through the proxy to a fake device. The fake enforces pre-2024 adbd write framing and models USB IN transfers, including payloads with no zero-length packet. `connect`, `devices`, `shell`, packet-aligned payloads (512 and 4096 bytes), 1 MiB payloads, and reconnect all work, with zero framing violations and zero would-stall reads. A negative control with oversized reads is correctly flagged. Everything also runs clean under ASan and UBSan.
+- On macOS the proxy is built and its test suite runs in CI (arm64 and x86_64), but it has not been run against a phone.
 - **Verified end to end on real hardware** through [aoahid_player](https://github.com/nemarpuc/aoahid_player)'s ADB Bridge, with HID input running at the same time: a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux, with the phone's driver on WinUSB and on libusbK on Windows. That app keeps the phone in its current USB mode (no accessory switch), so the accessory-mode path was not part of it. On Windows the HyperOS phone came up with WinUSB and worked as plugged in; the Samsung tablet first needed its dedicated Samsung driver replaced with WinUSB (see [Troubleshooting](docs/USAGE.md#troubleshooting)).
 
 ## License

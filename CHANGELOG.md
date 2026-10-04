@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 3.2.0
+
+- Release archives for macOS arm64 and x86_64 (`aoahid_adb_proxy-v3.2.0-macos-{arm64,x86_64}.tar.gz`),
+  built against the libaoahid 4.1.0 macOS archives. CI runs the test suite on
+  both. The source is unchanged: it already sets `SO_NOSIGPIPE` where
+  `MSG_NOSIGNAL` does not exist. It has not been run against a phone on macOS.
+- No API or ABI change.
+
 ## 3.1.3
 
 - Back to the 3.1.1 behavior: when the Channel is lost the proxy closes its
