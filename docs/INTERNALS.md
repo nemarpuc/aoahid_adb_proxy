@@ -170,8 +170,8 @@ becomes the release notes.
 
 libaoahid is found as an installed package (`find_package(aoahid 4.0)`). When
 none is found, its source is fetched at a pinned commit
-(`CMakeLists.txt#L22`). CI builds against the 4.0.0 release assets, the
-oldest version supported.
+(`CMakeLists.txt#L22`). CI builds against the 4.2.0 release assets, the
+version the pinned commit fetches.
 
 ## Vendoring
 

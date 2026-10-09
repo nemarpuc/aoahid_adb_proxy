@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- The source fallback fetches libaoahid 4.2.0 (was 4.0.0) and CI builds against
+  the 4.2.0 release assets. The proxy's own code and the `find_package`
+  minimum (4.0) are unchanged.
+
 ## 3.2.0
 
 - Release archives for macOS arm64 and x86_64 (`aoahid_adb_proxy-v3.2.0-macos-{arm64,x86_64}.tar.gz`),

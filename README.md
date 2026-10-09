@@ -68,14 +68,14 @@ Rules:
 
 ## Build
 
-Requires CMake 3.20+, a C++11 compiler, and libaoahid 4.0.x.
+Requires CMake 3.20+, a C++11 compiler, and libaoahid 4.0 or newer 4.x.
 
 ```sh
 # Recommended: an extracted official libaoahid release package
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-4.0.0-<platform>-shared
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-4.2.0-<platform>-shared
 cmake --build build --config Release
 
-# Otherwise libaoahid v4.0.0 is fetched from source (needs libusb 1.0.30+)
+# Otherwise libaoahid v4.2.0 is fetched from source (needs libusb 1.0.30+)
 cmake -S . -B build && cmake --build build
 ```
 

@@ -19,7 +19,7 @@ if(NOT aoahid_FOUND)
   FetchContent_Declare(
     aoahid
     GIT_REPOSITORY https://github.com/nemarpuc/libaoahid.git
-    GIT_TAG        ef7b3d1e446123e0ee11a8c6cc167daaed893a36) # v4.0.0, by commit so a moved tag cannot change it
+    GIT_TAG        8c99a9cfbc74283a5f4c9baf38526010d7c14104) # v4.2.0, by commit so a moved tag cannot change it
   FetchContent_MakeAvailable(aoahid)
 endif()
 
