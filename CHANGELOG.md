@@ -2,9 +2,12 @@
 
 ## Unreleased
 
+## 3.2.1
+
 - The source fallback fetches libaoahid 4.2.0 (was 4.0.0) and CI builds against
   the 4.2.0 release assets. The proxy's own code and the `find_package`
   minimum (4.0) are unchanged.
+- No API or ABI change.
 
 ## 3.2.0
 
