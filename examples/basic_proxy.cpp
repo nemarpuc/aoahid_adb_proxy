@@ -28,8 +28,8 @@ static aoahid_device_options device_options() {
     o.linux_hid_fields_per_report_policy = 256;
     o.linux_hid_global_stack_depth_policy = 4;
     o.linux_hid_usages_policy = 12288;
-    o.linux_hid_report_data_bits_policy = 65528;
-    o.linux_hid_report_size_bits_policy = 256;
+    o.linux_hid_report_data_policy_bits = 65528;
+    o.linux_hid_report_size_policy_bits = 256;
     o.target_ep0_data_policy_bytes = 4096;
     o.host_control_buffer_policy_bytes = 4096;
     o.interface_claim_policy = AOAHID_INTERFACE_CLAIM_NONE;

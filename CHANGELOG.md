@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The source fallback fetches the libaoahid 1.0.0 commit as it is released, and
+  the example sets the two parser limits under their final names
+  (`linux_hid_report_data_policy_bits`, `linux_hid_report_size_policy_bits`).
+  The proxy's own code is unchanged.
+
 ## 3.2.2
 
 - Builds against libaoahid 1.0.0: the `find_package` minimum is 1.0, the source
