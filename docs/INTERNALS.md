@@ -5,22 +5,20 @@ data the way it does) and [USAGE.md](USAGE.md) (how to run it): the state the
 code keeps, which thread touches it, the order things stop in, and how to
 test and vendor it.
 
-Source references are `path#Lnnn` and are valid at v3.1.3.
-
 ## Shape
 
-One source file, `src/aoahid_adb_proxy.cpp#L48`,
+One source file, `src/aoahid_adb_proxy.cpp`,
 and two exported functions. It links libaoahid and uses four of its calls:
 `aoahid_channel_open`, `aoahid_channel_read`, `aoahid_channel_write`, and
 `aoahid_channel_close`. Everything else is sockets and C++11 threads.
 
 | Thread | Function | Lives |
 | --- | --- | --- |
-| accept | `src/aoahid_adb_proxy.cpp#L225` | From `start` until `stop`, or until the Channel is lost. |
-| tx (TCP to USB) | `src/aoahid_adb_proxy.cpp#L140` | One per client session. |
-| rx (USB to TCP) | `src/aoahid_adb_proxy.cpp#L175` | One per client session. |
+| accept | `accept_loop` | From `start` until `stop`, or until the Channel is lost. |
+| tx (TCP to USB) | `tx_loop` | One per client session. |
+| rx (USB to TCP) | `rx_loop` | One per client session. |
 
-The accept thread runs `src/aoahid_adb_proxy.cpp#L198` itself, so one
+The accept thread runs `serve` itself, so one
 client is served at a time. The listen backlog is 1.
 
 ## State and who owns it
@@ -44,17 +42,17 @@ previous session's threads did, so `rx_packet` needs no lock.
 
 1. A header is validated before anything reaches the device: `magic` must be
    `command ^ 0xFFFFFFFF` and `data_length` at most `MAX_PAYLOAD`
-   (`src/aoahid_adb_proxy.cpp#L146`). A client that fails
+   (`tx_loop`). A client that fails
    this is dropped and nothing is written.
 2. The header and the payload are separate `aoahid_channel_write` calls, so
    they are separate USB transfers.
 3. Once a header has been written its payload is always written, even when
    the client disconnects or `stop` runs in between
-   (`src/aoahid_adb_proxy.cpp#L119`, `finish`). Only a write
+   (`usb_write_all`, `finish`). Only a write
    that times out without moving a byte, while the session is ending, gives up.
 4. A client never receives part of a packet: the rx thread sends a packet
    only when it is whole, and a packet a previous client left half read is
-   finished and discarded (`src/aoahid_adb_proxy.cpp#L178`).
+   finished and discarded (`rx_loop`).
 5. An IN header that announces more than `MAX_PAYLOAD` means framing is lost.
    The rx thread clears `running`; the proxy cannot resynchronize.
 
@@ -97,7 +95,7 @@ From `aoahid.h` (libaoahid 1.x):
 ## Stop order
 
 `stop` clears `running`, joins the accept thread, closes the Channel, and
-frees the context (`src/aoahid_adb_proxy.cpp#L320`).
+frees the context (`aoahid_adb_proxy_stop`).
 
 Inside `serve`, tx is joined first. Then the client socket is shut down, which
 releases an rx thread blocked in `send` to a client that stopped reading. Then
@@ -139,7 +137,7 @@ state.)
 
 ## Tests
 
-`tests/test_proxy.cpp#L404` builds the proxy source together with its
+`tests/test_proxy.cpp` builds the proxy source together with its
 own definitions of the four `aoahid_channel_*` functions, so it needs
 libaoahid's headers but neither the library nor a device. The fake Channel is
 a byte queue for IN and a list with one entry per `aoahid_channel_write` call
@@ -160,9 +158,9 @@ Not covered by a test: a USB write that times out, and the `finish` path.
 ## Versions
 
 The version is in two places, which CI compares:
-`CMakeLists.txt#L2` and the three
+`CMakeLists.txt` and the three
 `AOAHID_ADB_PROXY_VERSION_*` macros in
-`include/aoahid_adb_proxy.h#L10`.
+`include/aoahid_adb_proxy.h`.
 
 A pushed `v*` tag runs `.github/workflows/release.yml`. It requires the tag to
 match the CMake version and `CHANGELOG.md` to have a `## X.Y.Z` section, which
@@ -170,7 +168,7 @@ becomes the release notes.
 
 libaoahid is found as an installed package (`find_package(aoahid 1.0)`). When
 none is found, its source is fetched at a pinned commit
-(`CMakeLists.txt#L22`). CI builds against the 1.0.0 release assets, the
+(`CMakeLists.txt`). CI builds against the 1.0.0 release assets, the
 version the pinned commit fetches.
 
 ## Vendoring
