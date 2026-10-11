@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 3.2.2
+
+- Builds against libaoahid 1.0.0: the `find_package` minimum is 1.0, the source
+  fallback fetches the 1.0.0 commit, and CI uses the 1.0.0 release assets.
+  libaoahid restarted its version numbering at 1.0.0 and withdrew the earlier
+  release tags. The proxy's own code is unchanged.
+- No API or ABI change.
+
 ## 3.2.1
 
 - The source fallback fetches libaoahid 4.2.0 (was 4.0.0) and CI builds against

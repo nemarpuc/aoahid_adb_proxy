@@ -69,7 +69,7 @@ previous session's threads did, so `rx_packet` needs no lock.
 
 ## The Channel contract the proxy relies on
 
-From `aoahid.h` (libaoahid 4.x):
+From `aoahid.h` (libaoahid 1.x):
 
 - The Context must be in `AOAHID_EVENT_INTERNAL_THREAD` mode. Only then may
   one thread read while another writes.
@@ -168,9 +168,9 @@ A pushed `v*` tag runs `.github/workflows/release.yml`. It requires the tag to
 match the CMake version and `CHANGELOG.md` to have a `## X.Y.Z` section, which
 becomes the release notes.
 
-libaoahid is found as an installed package (`find_package(aoahid 4.0)`). When
+libaoahid is found as an installed package (`find_package(aoahid 1.0)`). When
 none is found, its source is fetched at a pinned commit
-(`CMakeLists.txt#L22`). CI builds against the 4.2.0 release assets, the
+(`CMakeLists.txt#L22`). CI builds against the 1.0.0 release assets, the
 version the pinned commit fetches.
 
 ## Vendoring
