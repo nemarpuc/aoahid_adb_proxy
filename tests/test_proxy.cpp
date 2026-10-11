@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <deque>
+#include <initializer_list>
 #include <mutex>
 #include <thread>
 #include <vector>
@@ -58,6 +59,11 @@ aoahid_result g_open_result = AOAHID_OK;
 aoahid_result g_read_error = AOAHID_OK;
 std::deque<uint8_t> g_in;
 std::vector<Bytes> g_writes;
+// What the next aoahid_channel_write calls do, one entry per call: a count
+// queues only that many bytes and reports a timeout, kWhole takes the call
+// as usual. Empty means every call is taken whole.
+const size_t kWhole = static_cast<size_t>(-1);
+std::deque<size_t> g_write_script;
 int g_opens = 0;
 int g_closes = 0;
 
@@ -71,6 +77,11 @@ void device_fails(aoahid_result error) {
     std::lock_guard<std::mutex> lock(g_mutex);
     g_read_error = error;
     g_cv.notify_all();
+}
+
+void script_writes(std::initializer_list<size_t> steps) {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_write_script.assign(steps);
 }
 
 size_t write_count() {
@@ -342,6 +353,71 @@ void test_reconnect_mid_packet(uint16_t port) {
     closesocket(second);
 }
 
+// A client that leaves in the middle of a header or of a payload has sent
+// nothing to the device: a header goes out only once its payload is in.
+void test_client_leaves_mid_packet(uint16_t port) {
+    const size_t before = write_count();
+    socket_t client = connect_client(port);
+    const Bytes cut = header(8);
+    CHECK(send_bytes(client, Bytes(cut.begin(), cut.begin() + 10)));
+    closesocket(client);
+
+    client = connect_client(port);
+    CHECK(send_bytes(client, joined(header(8), payload(3, 0x60))));
+    closesocket(client);
+
+    // The next client's own packet is the first thing the device gets.
+    client = connect_and_sync(port);
+    CHECK(write_count() == before + 1);
+    CHECK(write_at(before) == header(0));
+    closesocket(client);
+}
+
+// A write that times out with part of the data queued goes on with the rest.
+void test_write_timeout_resumes(uint16_t port) {
+    const size_t before = write_count();
+    socket_t client = connect_client(port);
+    const Bytes head = header(40);
+    const Bytes body = payload(40, 0x70);
+    script_writes({5, kWhole, 10, kWhole});
+    CHECK(send_bytes(client, joined(head, body)));
+    CHECK(eventually([&] { return write_count() == before + 4; }));
+    if (write_count() == before + 4) {
+        CHECK(write_at(before) == Bytes(head.begin(), head.begin() + 5));
+        CHECK(write_at(before + 1) == Bytes(head.begin() + 5, head.end()));
+        CHECK(write_at(before + 2) == Bytes(body.begin(), body.begin() + 10));
+        CHECK(write_at(before + 3) == Bytes(body.begin() + 10, body.end()));
+    }
+    closesocket(client);
+}
+
+// A timeout with every byte queued leaves only the zero-length packet unsent,
+// which cannot be sent alone: the session ends and nothing is written twice.
+void test_write_timeout_at_end(uint16_t port) {
+    const size_t before = write_count();
+    socket_t client = connect_client(port);
+    const Bytes body = payload(64, 0x80);
+    script_writes({kWhole, body.size()});
+    CHECK(send_bytes(client, joined(header(64), body)));
+    CHECK(closed_by_proxy(client));
+    closesocket(client);
+    CHECK(write_count() == before + 2);
+    if (write_count() == before + 2) CHECK(write_at(before + 1) == body);
+
+    client = connect_and_sync(port);
+    closesocket(client);
+}
+
+// A device header that claims more than an ADB packet can hold means the
+// framing is lost: the session ends and the proxy stops serving.
+void test_bad_device_header(uint16_t port) {
+    socket_t client = connect_and_sync(port);
+    device_sends(header(1024 * 1024 + 1));
+    CHECK(closed_by_proxy(client));
+    closesocket(client);
+    CHECK(eventually([&] { return !can_connect(port); }));
+}
+
 // A failed USB read ends the session and the proxy stops serving: the port is
 // closed, so a new client is refused instead of accepted and never answered.
 void test_channel_lost(uint16_t port) {
@@ -376,9 +452,18 @@ aoahid_result AOAHID_CALL aoahid_channel_close(aoahid_channel*) {
 aoahid_result AOAHID_CALL aoahid_channel_write(aoahid_channel*, const uint8_t* data, size_t length,
                                                size_t* out_written, uint32_t) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    g_writes.push_back(Bytes(data, data + length));
-    *out_written = length;
-    return AOAHID_OK;
+    size_t take = length;
+    aoahid_result result = AOAHID_OK;
+    if (!g_write_script.empty()) {
+        if (g_write_script.front() != kWhole) {
+            take = g_write_script.front();
+            result = AOAHID_ERR_TIMEOUT;
+        }
+        g_write_script.pop_front();
+    }
+    g_writes.push_back(Bytes(data, data + take));
+    *out_written = take;
+    return result;
 }
 
 aoahid_result AOAHID_CALL aoahid_channel_read(aoahid_channel*, uint8_t* buffer, size_t capacity,
@@ -418,6 +503,9 @@ int main() {
         test_usb_to_tcp(port);
         test_bad_client_header(port);
         test_reconnect_mid_packet(port);
+        test_client_leaves_mid_packet(port);
+        test_write_timeout_resumes(port);
+        test_write_timeout_at_end(port);
         test_channel_lost(port);
         const int closes = close_count();
         aoahid_adb_proxy_stop(proxy);
@@ -427,6 +515,7 @@ int main() {
         device_fails(AOAHID_OK);
         proxy = nullptr;
         CHECK(aoahid_adb_proxy_start(fake_device(), port, &proxy) == AOAHID_ADB_PROXY_OK);
+        if (proxy) test_bad_device_header(port);
         aoahid_adb_proxy_stop(proxy);
     }
 #ifdef _WIN32
