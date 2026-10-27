@@ -1,5 +1,22 @@
 # Changelog
 
+## 4.0.0
+
+Builds against libaoahid 2.0.0, which takes every wait as an argument of the call
+(`aoahid_channel_open` and `aoahid_channel_close` now take `drain_timeout_ms`).
+The proxy has no wait of its own to borrow, so the same rule applies to it.
+
+- **API change.** `aoahid_adb_proxy_start(device, tcp_port, drain_timeout_ms, &proxy)`
+  and `aoahid_adb_proxy_stop(proxy, drain_timeout_ms)`. `drain_timeout_ms` is the
+  `drain_timeout_ms` of the Channel's open and close; it has no default and zero
+  from `start` is `AOAHID_ADB_PROXY_ERR_ARGUMENT`. Previously both used the
+  Device's `close_drain_timeout_ms`, which no longer exists.
+- The `find_package` minimum is 2.0, the source fallback fetches libaoahid 2.0.0
+  by commit, and CI uses the 2.0.0 release assets. The example no longer sets the
+  removed Device options and passes its waits to each call.
+- Not hardware-verified on a phone: the tests use a fake libaoahid Channel.
+- SOVERSION is 4 (it follows the major version).
+
 ## 3.2.3
 
 - The source fallback fetches libaoahid 1.0.0 as re-released on 2026-10-11

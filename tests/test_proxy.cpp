@@ -66,6 +66,10 @@ const size_t kWhole = static_cast<size_t>(-1);
 std::deque<size_t> g_write_script;
 int g_opens = 0;
 int g_closes = 0;
+// The drain wait the proxy passed to the last aoahid_channel_open / aoahid_channel_close.
+uint32_t g_drain_timeout_ms = 0;
+uint32_t g_close_drain_timeout_ms = 0;
+const uint32_t kDrainTimeoutMs = 1234;
 
 void device_sends(const Bytes& bytes) {
     std::lock_guard<std::mutex> lock(g_mutex);
@@ -243,14 +247,17 @@ aoahid_device* fake_device() {
 
 void test_start_failures() {
     aoahid_adb_proxy_context* proxy = reinterpret_cast<aoahid_adb_proxy_context*>(&g_channel);
-    CHECK(aoahid_adb_proxy_start(nullptr, 6555, &proxy) == AOAHID_ADB_PROXY_ERR_ARGUMENT);
+    CHECK(aoahid_adb_proxy_start(nullptr, 6555, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_ERR_ARGUMENT);
     CHECK(proxy == nullptr);
-    CHECK(aoahid_adb_proxy_start(fake_device(), 6555, nullptr) == AOAHID_ADB_PROXY_ERR_ARGUMENT);
+    CHECK(aoahid_adb_proxy_start(fake_device(), 6555, kDrainTimeoutMs, nullptr) == AOAHID_ADB_PROXY_ERR_ARGUMENT);
     CHECK(g_opens == 0);
+    // A zero wait is refused before anything is opened.
+    CHECK(aoahid_adb_proxy_start(fake_device(), 6555, 0, &proxy) == AOAHID_ADB_PROXY_ERR_ARGUMENT);
+    CHECK(proxy == nullptr && g_opens == 0);
 
     g_open_result = AOAHID_ERR_BUSY;
     proxy = reinterpret_cast<aoahid_adb_proxy_context*>(&g_channel);
-    CHECK(aoahid_adb_proxy_start(fake_device(), free_port(), &proxy) == AOAHID_ADB_PROXY_ERR_INTERFACE);
+    CHECK(aoahid_adb_proxy_start(fake_device(), free_port(), kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_ERR_INTERFACE);
     CHECK(proxy == nullptr);
     CHECK(close_count() == 0);
     g_open_result = AOAHID_OK;
@@ -258,12 +265,13 @@ void test_start_failures() {
     // A port something else listens on: the Channel that was opened is closed again.
     uint16_t taken = 0;
     socket_t holder = listen_anywhere(&taken);
-    CHECK(aoahid_adb_proxy_start(fake_device(), taken, &proxy) == AOAHID_ADB_PROXY_ERR_BIND);
+    CHECK(aoahid_adb_proxy_start(fake_device(), taken, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_ERR_BIND);
     CHECK(proxy == nullptr);
     CHECK(close_count() == 1);
+    CHECK(g_drain_timeout_ms == kDrainTimeoutMs && g_close_drain_timeout_ms == kDrainTimeoutMs);
     closesocket(holder);
 
-    aoahid_adb_proxy_stop(nullptr);
+    aoahid_adb_proxy_stop(nullptr, kDrainTimeoutMs);
 }
 
 void test_channel_options() {
@@ -433,19 +441,22 @@ void test_channel_lost(uint16_t port) {
 extern "C" {
 
 aoahid_result AOAHID_CALL aoahid_channel_open(aoahid_device*, const aoahid_channel_options* options,
+                                              uint32_t drain_timeout_ms,
                                               aoahid_channel** out_channel) {
     std::lock_guard<std::mutex> lock(g_mutex);
     *out_channel = nullptr;
     if (g_open_result != AOAHID_OK) return g_open_result;
     ++g_opens;
+    g_drain_timeout_ms = drain_timeout_ms;
     g_options = *options;
     *out_channel = &g_channel;
     return AOAHID_OK;
 }
 
-aoahid_result AOAHID_CALL aoahid_channel_close(aoahid_channel*) {
+aoahid_result AOAHID_CALL aoahid_channel_close(aoahid_channel*, uint32_t drain_timeout_ms) {
     std::lock_guard<std::mutex> lock(g_mutex);
     ++g_closes;
+    g_close_drain_timeout_ms = drain_timeout_ms;
     return AOAHID_OK;
 }
 
@@ -495,7 +506,7 @@ int main() {
 
     const uint16_t port = free_port();
     aoahid_adb_proxy_context* proxy = nullptr;
-    CHECK(aoahid_adb_proxy_start(fake_device(), port, &proxy) == AOAHID_ADB_PROXY_OK);
+    CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_OK);
     CHECK(proxy != nullptr);
     if (proxy) {
         test_channel_options();
@@ -508,15 +519,16 @@ int main() {
         test_write_timeout_at_end(port);
         test_channel_lost(port);
         const int closes = close_count();
-        aoahid_adb_proxy_stop(proxy);
+        aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
         CHECK(close_count() == closes + 1);
+        CHECK(g_close_drain_timeout_ms == kDrainTimeoutMs);
 
         // The port is free again once stop returns.
         device_fails(AOAHID_OK);
         proxy = nullptr;
-        CHECK(aoahid_adb_proxy_start(fake_device(), port, &proxy) == AOAHID_ADB_PROXY_OK);
+        CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_OK);
         if (proxy) test_bad_device_header(port);
-        aoahid_adb_proxy_stop(proxy);
+        aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
     }
 #ifdef _WIN32
     WSACleanup();

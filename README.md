@@ -29,9 +29,9 @@ The order matters: if the adb server holds the ADB interface, the proxy cannot c
 ```c
 #include "aoahid_adb_proxy.h"
 
-int  aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port,
+int  aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, uint32_t drain_timeout_ms,
                             aoahid_adb_proxy_context** out_proxy);
-void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy);
+void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy, uint32_t drain_timeout_ms);
 ```
 
 ```c
@@ -42,9 +42,9 @@ co.event_mode = AOAHID_EVENT_INTERNAL_THREAD;          /* required */
    aoahid_accessory_start if the device needs accessory mode) */
 
 aoahid_adb_proxy_context* proxy = NULL;
-if (aoahid_adb_proxy_start(device, 6555, &proxy) == AOAHID_ADB_PROXY_OK) {
+if (aoahid_adb_proxy_start(device, 6555, drain_timeout_ms, &proxy) == AOAHID_ADB_PROXY_OK) {
     /* HID work with aoahid_node_* runs here, unaffected */
-    aoahid_adb_proxy_stop(proxy);                       /* before aoahid_device_close */
+    aoahid_adb_proxy_stop(proxy, drain_timeout_ms);     /* before aoahid_device_close */
 }
 ```
 
@@ -68,14 +68,14 @@ Rules:
 
 ## Build
 
-Requires CMake 3.20+, a C++11 compiler, and libaoahid 1.0 or newer 1.x.
+Requires CMake 3.20+, a C++11 compiler, and libaoahid 2.0 or newer 2.x.
 
 ```sh
 # Recommended: an extracted official libaoahid release package
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-1.0.0-<platform>-shared
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-2.0.0-<platform>-shared
 cmake --build build --config Release
 
-# Otherwise libaoahid v4.2.0 is fetched from source (needs libusb 1.0.30+)
+# Otherwise libaoahid v2.0.0 is fetched from source (needs libusb 1.0.30+)
 cmake -S . -B build && cmake --build build
 ```
 

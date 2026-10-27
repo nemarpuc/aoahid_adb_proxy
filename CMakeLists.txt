@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(aoahid_adb_proxy VERSION 3.2.3 LANGUAGES C CXX)
+project(aoahid_adb_proxy VERSION 4.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,13 +13,13 @@ endif()
 
 # libaoahid: an installed package (e.g. an official release archive via
 # CMAKE_PREFIX_PATH) is preferred; otherwise the pinned source tag is fetched.
-find_package(aoahid 1.0 CONFIG QUIET)
+find_package(aoahid 2.0 CONFIG QUIET)
 if(NOT aoahid_FOUND)
   include(FetchContent)
   FetchContent_Declare(
     aoahid
     GIT_REPOSITORY https://github.com/nemarpuc/libaoahid.git
-    GIT_TAG        cd47edcae4a9d5c5337e959b4e8f3a1210dc65e2) # v1.0.0, by commit so a moved tag cannot change it
+    GIT_TAG        e1bcd07180850d6acee7388fd554d50a0d46c528) # v2.0.0, by commit so a moved tag cannot change it
   FetchContent_MakeAvailable(aoahid)
 endif()
 

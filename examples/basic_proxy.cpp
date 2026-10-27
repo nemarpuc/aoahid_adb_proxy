@@ -12,17 +12,18 @@
 #include "aoahid_adb_proxy.h"
 
 static const uint16_t kPort = 6555;
+// Every wait is an argument of the call and has no default (see "Timeouts" in libaoahid's
+// docs/API.md); these are this example's own choices.
+static const uint32_t kControlTimeoutMs = 500;
+static const uint32_t kDrainTimeoutMs = 1000;
 
 static aoahid_device_options device_options() {
     aoahid_device_options o;
     std::memset(&o, 0, sizeof(o));
     o.struct_size = sizeof(o);
-    o.control_timeout_ms = 500;
-    o.send_timeout_ms = 500;
     o.descriptor_fragment_bytes = 4096;
     o.transfer_pool_slots = 4;
     o.maximum_report_bytes = 1024;
-    o.close_drain_timeout_ms = 1000;
     o.aoa_descriptor_wire_policy_bytes = 4096;
     o.linux_descriptor_policy_bytes = 4096;
     o.linux_hid_fields_per_report_policy = 256;
@@ -50,7 +51,7 @@ int main() {
     if (aoahid_discover(ctx, 500, &d) != AOAHID_OK || aoahid_discovery_count(d) == 0) {
         std::fprintf(stderr, "no AOA-capable device found\n");
         aoahid_discovery_destroy(d);
-        aoahid_context_destroy(ctx);
+        aoahid_context_destroy(ctx, kControlTimeoutMs, kDrainTimeoutMs);
         return 1;
     }
     const aoahid_device_info* phone = aoahid_discovery_get(d, 0);
@@ -60,12 +61,12 @@ int main() {
     aoahid_discovery_destroy(d);
     if (r != AOAHID_OK) {
         std::fprintf(stderr, "device open failed: %d\n", static_cast<int>(r));
-        aoahid_context_destroy(ctx);
+        aoahid_context_destroy(ctx, kControlTimeoutMs, kDrainTimeoutMs);
         return 1;
     }
 
     aoahid_adb_proxy_context* proxy = nullptr;
-    int pr = aoahid_adb_proxy_start(dev, kPort, &proxy);
+    int pr = aoahid_adb_proxy_start(dev, kPort, kDrainTimeoutMs, &proxy);
     if (pr != AOAHID_ADB_PROXY_OK) {
 #ifdef _WIN32
         std::fprintf(stderr,
@@ -79,11 +80,11 @@ int main() {
         std::printf("ADB proxy ready. Run: adb connect 127.0.0.1:%u\n", kPort);
         std::printf("Press Enter to stop.\n");
         std::getchar();  // your HID loop (aoahid_node_*) goes here
-        aoahid_adb_proxy_stop(proxy);
+        aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
         std::printf("Stopped. Run `adb kill-server` so adb sees the phone over USB again.\n");
     }
 
-    aoahid_device_close(dev);
-    aoahid_context_destroy(ctx);
+    aoahid_device_close(dev, kControlTimeoutMs, kDrainTimeoutMs);
+    aoahid_context_destroy(ctx, kControlTimeoutMs, kDrainTimeoutMs);
     return pr == 0 ? 0 : 1;
 }

@@ -235,10 +235,11 @@ void accept_loop(aoahid_adb_proxy_context* ctx) {
 }
 
 // Releases whatever a failed start had acquired.
-int fail_start(int err, aoahid_adb_proxy_context* ctx, socket_t sock, aoahid_channel* channel) {
+int fail_start(int err, aoahid_adb_proxy_context* ctx, socket_t sock, aoahid_channel* channel,
+               uint32_t drain_timeout_ms) {
     delete ctx;
     if (sock != INVALID_SOCKET) closesocket(sock);
-    if (channel) aoahid_channel_close(channel);
+    if (channel) aoahid_channel_close(channel, drain_timeout_ms);
 #ifdef _WIN32
     WSACleanup();
 #endif
@@ -247,10 +248,11 @@ int fail_start(int err, aoahid_adb_proxy_context* ctx, socket_t sock, aoahid_cha
 
 }  // namespace
 
-int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy) {
+int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, uint32_t drain_timeout_ms,
+                           aoahid_adb_proxy_context** out_proxy) {
     if (!out_proxy) return AOAHID_ADB_PROXY_ERR_ARGUMENT;
     *out_proxy = nullptr;
-    if (!device) return AOAHID_ADB_PROXY_ERR_ARGUMENT;
+    if (!device || drain_timeout_ms == 0) return AOAHID_ADB_PROXY_ERR_ARGUMENT;
 
 #ifdef _WIN32
     WSADATA wsa;
@@ -273,11 +275,11 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     opt.zero_length_termination = 1;
 
     aoahid_channel* channel = nullptr;
-    if (aoahid_channel_open(device, &opt, &channel) != AOAHID_OK) {
-        return fail_start(AOAHID_ADB_PROXY_ERR_INTERFACE, nullptr, INVALID_SOCKET, channel);
+    if (aoahid_channel_open(device, &opt, drain_timeout_ms, &channel) != AOAHID_OK) {
+        return fail_start(AOAHID_ADB_PROXY_ERR_INTERFACE, nullptr, INVALID_SOCKET, channel, drain_timeout_ms);
     }
     const socket_t sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET) return fail_start(AOAHID_ADB_PROXY_ERR_SOCKET, nullptr, sock, channel);
+    if (sock == INVALID_SOCKET) return fail_start(AOAHID_ADB_PROXY_ERR_SOCKET, nullptr, sock, channel, drain_timeout_ms);
 #ifndef _WIN32
     // Windows SO_REUSEADDR would let another process steal the port.
     int one = 1;
@@ -289,14 +291,14 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     addr.sin_port = htons(tcp_port);
     if (bind(sock, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR) {
-        return fail_start(AOAHID_ADB_PROXY_ERR_BIND, nullptr, sock, channel);
+        return fail_start(AOAHID_ADB_PROXY_ERR_BIND, nullptr, sock, channel, drain_timeout_ms);
     }
     if (listen(sock, 1) == SOCKET_ERROR) {
-        return fail_start(AOAHID_ADB_PROXY_ERR_LISTEN, nullptr, sock, channel);
+        return fail_start(AOAHID_ADB_PROXY_ERR_LISTEN, nullptr, sock, channel, drain_timeout_ms);
     }
 
     aoahid_adb_proxy_context* ctx = new (std::nothrow) aoahid_adb_proxy_context();
-    if (!ctx) return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, nullptr, sock, channel);
+    if (!ctx) return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, nullptr, sock, channel, drain_timeout_ms);
     ctx->channel = channel;
     ctx->listen_sock = sock;
     ctx->running = true;
@@ -306,23 +308,23 @@ int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_
     ctx->rx_have = 0;
     ctx->rx_need = 0;
     if (!ctx->rx_packet || !ctx->tx_payload) {
-        return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, ctx, sock, channel);
+        return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, ctx, sock, channel, drain_timeout_ms);
     }
     try {
         ctx->accept_thread = std::thread(accept_loop, ctx);
     } catch (...) {
-        return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, ctx, sock, channel);
+        return fail_start(AOAHID_ADB_PROXY_ERR_RESOURCE, ctx, sock, channel, drain_timeout_ms);
     }
     *out_proxy = ctx;
     return AOAHID_ADB_PROXY_OK;
 }
 
-void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy) {
+void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy, uint32_t drain_timeout_ms) {
     if (!proxy) return;
     proxy->running = false;
     // The accept thread closes the listening socket as it leaves.
     if (proxy->accept_thread.joinable()) proxy->accept_thread.join();
-    aoahid_channel_close(proxy->channel);
+    aoahid_channel_close(proxy->channel, drain_timeout_ms);
     delete proxy;
 #ifdef _WIN32
     WSACleanup();

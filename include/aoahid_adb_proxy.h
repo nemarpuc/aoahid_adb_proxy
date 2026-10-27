@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-#define AOAHID_ADB_PROXY_VERSION_MAJOR 3
-#define AOAHID_ADB_PROXY_VERSION_MINOR 2
-#define AOAHID_ADB_PROXY_VERSION_PATCH 3
+#define AOAHID_ADB_PROXY_VERSION_MAJOR 4
+#define AOAHID_ADB_PROXY_VERSION_MINOR 0
+#define AOAHID_ADB_PROXY_VERSION_PATCH 0
 
 typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
 
@@ -41,6 +41,10 @@ enum {
  *  - No adb server holds that interface (run `adb kill-server` first).
  *  - Avoid ports 5555-5585 (adb's emulator scan range); 6555 is a good default.
  *
+ * drain_timeout_ms is the wait aoahid_channel_open gives in-flight HID report
+ * transfers (aoahid_channel_open's drain_timeout_ms); it has no default and zero
+ * is refused as AOAHID_ADB_PROXY_ERR_ARGUMENT.
+ *
  * Returns AOAHID_ADB_PROXY_OK (0), or one of the AOAHID_ADB_PROXY_ERR_* values
  * above. *out_proxy is NULL on every failure.
  *
@@ -48,14 +52,17 @@ enum {
  * the proxy stops serving and closes the port, so `adb connect` is refused.
  * aoahid_adb_proxy_stop must still be called to release the rest.
  */
-int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, aoahid_adb_proxy_context** out_proxy);
+int aoahid_adb_proxy_start(aoahid_device* device, uint16_t tcp_port, uint32_t drain_timeout_ms,
+                           aoahid_adb_proxy_context** out_proxy);
 
 /* Stops the proxy and releases the Channel and port. Returns within ~100 ms.
  * A packet whose header already reached the device is finished first, so it
- * takes up to ~1 s longer if the device has stopped reading, plus up to the
- * Device's close_drain_timeout_ms while the Channel's transfers are cancelled.
- * Call before closing the device. NULL is ignored. */
-void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy);
+ * takes up to ~1 s longer if the device has stopped reading, plus up to
+ * drain_timeout_ms while the Channel's transfers are cancelled
+ * (aoahid_channel_close's drain_timeout_ms). Zero is refused by aoahid_channel_close;
+ * the Channel is then left open for aoahid_device_close to release. Call before
+ * closing the device. NULL is ignored. */
+void aoahid_adb_proxy_stop(aoahid_adb_proxy_context* proxy, uint32_t drain_timeout_ms);
 
 #ifdef __cplusplus
 }

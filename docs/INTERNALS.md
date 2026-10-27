@@ -166,9 +166,9 @@ A pushed `v*` tag runs `.github/workflows/release.yml`. It requires the tag to
 match the CMake version and `CHANGELOG.md` to have a `## X.Y.Z` section, which
 becomes the release notes.
 
-libaoahid is found as an installed package (`find_package(aoahid 1.0)`). When
+libaoahid is found as an installed package (`find_package(aoahid 2.0)`). When
 none is found, its source is fetched at a pinned commit
-(`CMakeLists.txt`). CI builds against the 1.0.0 release assets, the
+(`CMakeLists.txt`). CI builds against the 2.0.0 release assets, the
 version the pinned commit fetches.
 
 ## Vendoring
