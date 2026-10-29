@@ -6,56 +6,32 @@
 // Order: `adb kill-server` -> run this -> `adb connect 127.0.0.1:6555`
 // (see docs/USAGE.md). HID code would go where the example waits for Enter.
 #include <cstdio>
-#include <cstring>
 
 #include "aoahid.h"
 #include "aoahid_adb_proxy.h"
 
 static const uint16_t kPort = 6555;
-// Every wait is an argument of the call and has no default (see "Timeouts" in libaoahid's
-// docs/API.md); these are this example's own choices.
-static const uint32_t kControlTimeoutMs = 500;
-static const uint32_t kDrainTimeoutMs = 1000;
-
-static aoahid_device_options device_options() {
-    aoahid_device_options o;
-    std::memset(&o, 0, sizeof(o));
-    o.struct_size = sizeof(o);
-    o.descriptor_fragment_bytes = 4096;
-    o.transfer_pool_slots = 4;
-    o.maximum_report_bytes = 1024;
-    o.aoa_descriptor_wire_policy_bytes = 4096;
-    o.linux_descriptor_policy_bytes = 4096;
-    o.linux_hid_fields_per_report_policy = 256;
-    o.linux_hid_global_stack_depth_policy = 4;
-    o.linux_hid_usages_policy = 12288;
-    o.linux_hid_report_data_policy_bits = 65528;
-    o.linux_hid_report_size_policy_bits = 256;
-    o.target_ep0_data_policy_bytes = 4096;
-    o.host_control_buffer_policy_bytes = 4096;
-    o.interface_claim_policy = AOAHID_INTERFACE_CLAIM_NONE;
-    o.interface_number = -1;
-    return o;
-}
+// Every wait is an argument of the call (see "Timeouts" in libaoahid's docs/API.md); the
+// library's constants are values that work with a current phone.
+static const uint32_t kControlTimeoutMs = AOAHID_CONTROL_TIMEOUT_MS;
+static const uint32_t kDrainTimeoutMs = AOAHID_DRAIN_TIMEOUT_MS;
 
 int main() {
     aoahid_context_options co;
-    std::memset(&co, 0, sizeof(co));
-    co.struct_size = sizeof(co);
-    co.event_mode = AOAHID_EVENT_INTERNAL_THREAD;  // required by the proxy
-    co.log_level = AOAHID_LOG_DISABLED;
+    aoahid_context_options_init(&co);  // AOAHID_EVENT_INTERNAL_THREAD, which the proxy requires
     aoahid_context* ctx = nullptr;
     if (aoahid_context_create(&co, &ctx) != AOAHID_OK) return 1;
 
     aoahid_discovery* d = nullptr;
-    if (aoahid_discover(ctx, 500, &d) != AOAHID_OK || aoahid_discovery_count(d) == 0) {
+    if (aoahid_discover(ctx, kControlTimeoutMs, &d) != AOAHID_OK || aoahid_discovery_count(d) == 0) {
         std::fprintf(stderr, "no AOA-capable device found\n");
         aoahid_discovery_destroy(d);
         aoahid_context_destroy(ctx, kControlTimeoutMs, kDrainTimeoutMs);
         return 1;
     }
     const aoahid_device_info* phone = aoahid_discovery_get(d, 0);
-    const aoahid_device_options dopt = device_options();
+    aoahid_device_options dopt;
+    aoahid_device_options_init(&dopt);
     aoahid_device* dev = nullptr;
     aoahid_result r = aoahid_device_open(ctx, phone, &dopt, &dev);
     aoahid_discovery_destroy(d);

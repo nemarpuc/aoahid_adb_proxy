@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.0.1
+
+- Builds against libaoahid 2.0.0 as re-released on 2026-10-29: the source fallback fetches it by
+  its new commit. The example starts from libaoahid's initializers and timeout constants instead
+  of the removed `linux_*_policy` fields. The proxy's own code is unchanged.
+
 ## 4.0.0
 
 Builds against libaoahid 2.0.0, which takes every wait as an argument of the call
