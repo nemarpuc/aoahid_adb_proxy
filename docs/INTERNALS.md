@@ -111,11 +111,10 @@ A session ends when either side ends:
 | USB read fails | rx | `running` is cleared. The session ends, the accept loop ends, and the port closes. |
 | `stop` | Every loop, within 100 ms | A payload whose header is already on the wire is written first (up to 1 s if the device has stopped reading). |
 
-Since 3.1.1 the accept thread closes the listening socket when its loop ends,
-so after a lost Channel the port refuses connections. The context stays
-allocated until `stop`. (3.1.2 kept the port bound and closed each new
-connection instead; 3.1.3 went back to closing the port, which needs no extra
-state.)
+The accept thread closes the listening socket when its loop ends, so after a
+lost Channel the port refuses connections (keeping it bound and closing each
+new connection would need extra state). The context stays allocated until
+`stop`.
 
 ## Sockets
 
@@ -166,9 +165,9 @@ A pushed `v*` tag runs `.github/workflows/release.yml`. It requires the tag to
 match the CMake version and `CHANGELOG.md` to have a `## X.Y.Z` section, which
 becomes the release notes.
 
-libaoahid is found as an installed package (`find_package(aoahid 2.0)`). When
+libaoahid is found as an installed package (`find_package(aoahid 0.1.0)`). When
 none is found, its source is fetched at a pinned commit
-(`CMakeLists.txt`). CI builds against the 2.0.0 release assets, the
+(`CMakeLists.txt`). CI builds against the 0.1.0 release assets, the
 version the pinned commit fetches.
 
 ## Vendoring

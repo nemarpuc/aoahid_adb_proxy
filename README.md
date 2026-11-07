@@ -58,7 +58,7 @@ if (aoahid_adb_proxy_start(device, 6555, drain_timeout_ms, &proxy) == AOAHID_ADB
 | `AOAHID_ADB_PROXY_ERR_LISTEN` | `-5` | `listen` failed |
 | `AOAHID_ADB_PROXY_ERR_RESOURCE` | `-6` | Out of memory, or no thread could be started |
 
-The numbers are stable; the names were added in 3.1.0. `*out_proxy` is `NULL` on every failure.
+The numbers are stable. `*out_proxy` is `NULL` on every failure.
 
 Rules:
 - Create the Context with `AOAHID_EVENT_INTERNAL_THREAD`. The proxy reads and writes from its own threads.
@@ -68,14 +68,14 @@ Rules:
 
 ## Build
 
-Requires CMake 3.20+, a C++11 compiler, and libaoahid 2.0 or newer 2.x.
+Requires CMake 3.20+, a C++11 compiler, and libaoahid 0.1.x.
 
 ```sh
 # Recommended: an extracted official libaoahid release package
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-2.0.0-<platform>-shared
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-0.1.0-<platform>-shared
 cmake --build build --config Release
 
-# Otherwise libaoahid v2.0.0 is fetched from source (needs libusb 1.0.30+)
+# Otherwise libaoahid v0.1.0 is fetched from source (needs libusb 1.0.30+)
 cmake -S . -B build && cmake --build build
 ```
 

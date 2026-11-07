@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-#define AOAHID_ADB_PROXY_VERSION_MAJOR 4
-#define AOAHID_ADB_PROXY_VERSION_MINOR 0
-#define AOAHID_ADB_PROXY_VERSION_PATCH 1
+#define AOAHID_ADB_PROXY_VERSION_MAJOR 0
+#define AOAHID_ADB_PROXY_VERSION_MINOR 1
+#define AOAHID_ADB_PROXY_VERSION_PATCH 0
 
 typedef struct aoahid_adb_proxy_context aoahid_adb_proxy_context;
 
