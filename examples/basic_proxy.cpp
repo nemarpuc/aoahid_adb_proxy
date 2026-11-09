@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 nemarpuc
 // Minimal host app: open the first phone with libaoahid and expose its ADB
 // interface on 127.0.0.1:6555. The phone is opened in whatever USB mode it is
 // in; switching to AOA accessory mode is the application's own choice

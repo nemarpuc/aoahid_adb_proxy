@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 nemarpuc
 #include "aoahid_adb_proxy.h"
 
 #include <atomic>

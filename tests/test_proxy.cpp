@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 nemarpuc
 // Runs the proxy against an in-memory Channel and a loopback TCP client: the
 // four aoahid_channel_* functions it calls are defined here, so no libaoahid
 // library and no USB device are involved.
