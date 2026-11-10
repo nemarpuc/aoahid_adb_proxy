@@ -72,7 +72,7 @@ Requires CMake 3.20+, a C++11 compiler, and libaoahid 0.1.x.
 
 ```sh
 # Recommended: an extracted official libaoahid release package
-cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-0.1.0-<platform>-shared
+cmake -S . -B build -DCMAKE_PREFIX_PATH=/path/to/libaoahid-0.1.0-<platform>
 cmake --build build --config Release
 
 # Otherwise libaoahid v0.1.0 is fetched from source (needs libusb 1.0.30+)
