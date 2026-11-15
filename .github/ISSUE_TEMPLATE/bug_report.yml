@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible start failure, a broken adb session, or a crash.
+title: "[bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not paste ADB keys, device serial numbers, or captured ADB traffic.
+        Say which layer fails: the proxy start, the TCP side (`adb connect`), or
+        the USB side (the phone).
+  - type: input
+    id: version
+    attributes:
+      label: aoahid_adb_proxy and libaoahid versions
+      description: Release versions or commit SHAs of both.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Exact environment
+      description: Host OS and architecture, phone model and Android version, the USB driver on Windows (WinUSB, libusbK, or the maker's), and the `adb version`.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: The order of the steps (`adb kill-server`, your app, `adb connect`), the port, and the return value of `aoahid_adb_proxy_start`.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
