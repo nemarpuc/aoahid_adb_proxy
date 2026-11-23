@@ -13,6 +13,42 @@ env:
   AOAHID_VERSION: 0.1.0
 
 jobs:
+  sanitizers:
+    name: Tests under ${{ matrix.name }}
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: AddressSanitizer and UBSan
+            flags: address,undefined
+          - name: ThreadSanitizer
+            flags: thread
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch libaoahid release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          pkg="libaoahid-${AOAHID_VERSION}-linux-x86_64-ubuntu22.04-shared"
+          gh release download "v${AOAHID_VERSION}" -R nemarpuc/libaoahid -p "$pkg.tar.gz" -p SHA256SUMS -D deps
+          (cd deps && grep " $pkg.tar.gz\$" SHA256SUMS | sha256sum -c -)
+          tar -xzf "deps/$pkg.tar.gz" -C deps
+          echo "AOAHID_PREFIX=$(pwd)/deps/$pkg" >> "$GITHUB_ENV"
+
+      # The tests define their own Channel, so only the proxy source is instrumented.
+      - name: Build the tests
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DAOAHID_ADB_PROXY_BUILD_EXAMPLES=OFF \
+            -DCMAKE_PREFIX_PATH="$AOAHID_PREFIX" \
+            -DCMAKE_CXX_FLAGS="-fsanitize=${{ matrix.flags }} -g" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=${{ matrix.flags }} -Wl,-rpath-link,$AOAHID_PREFIX/lib"
+          cmake --build build --target aoahid_adb_proxy_tests --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
   build:
     name: Build ${{ matrix.name }}
     runs-on: ${{ matrix.os }}

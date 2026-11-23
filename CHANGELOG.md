@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Tests: the largest payload (1 MiB) in both directions, a second client waiting for the first,
+  a client that stops reading (the proxy holds the device's data back and the next client is
+  served), `stop` with a client connected, a second `start` on a held port, and 20 start/stop
+  cycles with every Channel closed. CI runs the tests under AddressSanitizer, UBSan and
+  ThreadSanitizer. No library code changed.
+
 ## 0.1.0
 
 The first release of this line. Builds against libaoahid 0.1.0; before 1.0.0 a change of the

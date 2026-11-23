@@ -5,6 +5,7 @@
 // library and no USB device are involved.
 #include "aoahid_adb_proxy.h"
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -438,6 +439,146 @@ void test_channel_lost(uint16_t port) {
     CHECK(eventually([&] { return !can_connect(port); }));
 }
 
+const uint32_t kMaxPayload = 1024 * 1024;
+
+void clear_device_input() {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    g_in.clear();
+}
+
+size_t device_input_size() {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    return g_in.size();
+}
+
+// The largest ADB payload goes through in both directions, with the device's
+// packet already waiting while the client's is sent.
+void test_max_payload(uint16_t port) {
+    socket_t client = connect_and_sync(port);
+    const size_t before = write_count();
+    const Bytes down = joined(header(kMaxPayload), payload(kMaxPayload, 0x11));
+    const Bytes up = payload(kMaxPayload, 0x22);
+    device_sends(down);
+    CHECK(send_bytes(client, joined(header(kMaxPayload), up)));
+    CHECK(receive(client, down.size()) == down);
+    CHECK(eventually([&] { return write_count() == before + 2; }));
+    if (write_count() == before + 2) {
+        CHECK(write_at(before) == header(kMaxPayload));
+        CHECK(write_at(before + 1) == up);
+    }
+    closesocket(client);
+}
+
+// A second client is accepted by the system at once but is served only after
+// the first one leaves: nothing it sends reaches the device before that.
+void test_second_client_waits(uint16_t port) {
+    socket_t first = connect_and_sync(port);
+    const size_t before = write_count();
+    socket_t second = connect_client(port);
+    const Bytes mark = joined(header(3), payload(3, 0x33));
+    CHECK(send_bytes(second, mark));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    CHECK(write_count() == before);
+    closesocket(first);
+    CHECK(eventually([&] { return write_count() == before + 2; }));
+    if (write_count() == before + 2) {
+        CHECK(write_at(before) == header(3));
+        CHECK(write_at(before + 1) == payload(3, 0x33));
+    }
+    closesocket(second);
+}
+
+// Waits until the device's unread input has not changed for 300 ms and
+// returns its size.
+size_t wait_until_steady() {
+    size_t last = device_input_size();
+    int steady = 0;
+    for (int tries = 0; tries < 600 && steady < 6; ++tries) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        const size_t now = device_input_size();
+        steady = (now == last) ? steady + 1 : 0;
+        last = now;
+    }
+    CHECK(steady >= 6);
+    return last;
+}
+
+// A client that stops reading holds the device's data back instead of making
+// the proxy buffer it without limit, and leaving ends the session so the next
+// client is served.
+void test_client_not_reading(uint16_t port) {
+    socket_t client = connect_and_sync(port);
+    const size_t packets = 400;
+    const Bytes one = joined(header(65536), payload(65536, 0x44));
+    Bytes all;
+    for (size_t i = 0; i < packets; ++i) all.insert(all.end(), one.begin(), one.end());
+    device_sends(all);
+    CHECK(eventually([&] { return device_input_size() < all.size(); }));
+    // The proxy stops reading once the socket buffers are full.
+    const size_t stalled = wait_until_steady();
+    CHECK(stalled > 0);
+    closesocket(client);
+
+    // Leaving ends the session, which reads no more: the input stays as it is.
+    wait_until_steady();
+    clear_device_input();
+
+    socket_t next = connect_and_sync(port);
+    const Bytes fresh = joined(header(4), payload(4, 0x55));
+    device_sends(fresh);
+    CHECK(receive(next, fresh.size()) == fresh);
+    closesocket(next);
+}
+
+// stop returns while a client is connected and idle, and that client sees the
+// connection close.
+void test_stop_with_client(uint16_t port) {
+    aoahid_adb_proxy_context* proxy = nullptr;
+    CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_OK);
+    if (!proxy) return;
+    socket_t client = connect_and_sync(port);
+    std::atomic<bool> stopped(false);
+    std::thread stopper([&] {
+        aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
+        stopped = true;
+    });
+    CHECK(eventually([&] { return stopped.load(); }));
+    stopper.join();
+    CHECK(closed_by_proxy(client));
+    closesocket(client);
+    CHECK(!can_connect(port));
+}
+
+// Starting on a port the proxy itself holds fails and closes the second
+// Channel; the first proxy keeps serving.
+void test_start_twice(uint16_t port) {
+    aoahid_adb_proxy_context* first = nullptr;
+    CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &first) == AOAHID_ADB_PROXY_OK);
+    if (!first) return;
+    aoahid_adb_proxy_context* second = nullptr;
+    const int closes = close_count();
+    CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &second) == AOAHID_ADB_PROXY_ERR_BIND);
+    CHECK(second == nullptr);
+    CHECK(close_count() == closes + 1);
+    socket_t client = connect_and_sync(port);
+    closesocket(client);
+    aoahid_adb_proxy_stop(first, kDrainTimeoutMs);
+}
+
+// Many start and stop cycles, each with a client: every Channel opened is
+// closed and the port is free each time.
+void test_restart_cycles(uint16_t port) {
+    for (int i = 0; i < 20; ++i) {
+        aoahid_adb_proxy_context* proxy = nullptr;
+        CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_OK);
+        if (!proxy) return;
+        socket_t client = connect_and_sync(port);
+        if (i % 2) closesocket(client);
+        aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
+        if (!(i % 2)) closesocket(client);
+    }
+}
+
 }  // namespace
 
 extern "C" {
@@ -519,6 +660,9 @@ int main() {
         test_client_leaves_mid_packet(port);
         test_write_timeout_resumes(port);
         test_write_timeout_at_end(port);
+        test_max_payload(port);
+        test_second_client_waits(port);
+        test_client_not_reading(port);
         test_channel_lost(port);
         const int closes = close_count();
         aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
@@ -531,6 +675,13 @@ int main() {
         CHECK(aoahid_adb_proxy_start(fake_device(), port, kDrainTimeoutMs, &proxy) == AOAHID_ADB_PROXY_OK);
         if (proxy) test_bad_device_header(port);
         aoahid_adb_proxy_stop(proxy, kDrainTimeoutMs);
+    }
+    test_stop_with_client(port);
+    test_start_twice(port);
+    test_restart_cycles(port);
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        CHECK(g_opens == g_closes);
     }
 #ifdef _WIN32
     WSACleanup();
