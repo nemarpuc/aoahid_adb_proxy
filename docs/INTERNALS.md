@@ -89,7 +89,7 @@ From `aoahid.h` (libaoahid 1.x):
 - `aoahid_last_error()` is thread-local. After
   `AOAHID_ADB_PROXY_ERR_INTERFACE` the calling thread's last error is the
   failed `aoahid_channel_open`, because `start` makes no other libaoahid call
-  after it. aoahid_player reads `libusb_status` there to tell a driver problem
+  after it. android-macro-player reads `libusb_status` there to tell a driver problem
   from an adb server holding the interface.
 
 ## Stop order
@@ -172,7 +172,7 @@ version the pinned commit fetches.
 
 ## Vendoring
 
-aoahid_player carries a copy of `src/aoahid_adb_proxy.cpp` and
+android-macro-player carries a copy of `src/aoahid_adb_proxy.cpp` and
 `include/aoahid_adb_proxy.h` under `third_party/aoahid_adb_proxy/` and
 compiles it into its core library. After a release here:
 

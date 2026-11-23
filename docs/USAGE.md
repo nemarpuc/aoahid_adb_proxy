@@ -14,7 +14,7 @@ On first use the phone may ask to allow USB debugging. This is the same RSA prom
 
 When the adb server restarts in step 3, it also sees the phone on USB. It cannot open the phone because your app holds it, and the TCP connection works normally. To stop adb from probing USB at all, start the server with `ADB_USB=0`. This hides all other USB devices from adb too.
 
-**Restart the adb server after stopping the proxy.** Run `adb kill-server` once the proxy is stopped and the device closed; the next adb command starts a fresh server that picks the phone up over USB. aoahid_player does this automatically when a bridge is turned off or the phone is disconnected. The reason, from the adb sources (AOSP `platform/packages/modules/adb`, commit [`1cf2f017`](https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9)):
+**Restart the adb server after stopping the proxy.** Run `adb kill-server` once the proxy is stopped and the device closed; the next adb command starts a fresh server that picks the phone up over USB. android-macro-player does this automatically when a bridge is turned off or the phone is disconnected. The reason, from the adb sources (AOSP `platform/packages/modules/adb`, commit [`1cf2f017`](https://android.googlesource.com/platform/packages/modules/adb/+/1cf2f017d312f73b3dc53bda85ef2610e35a80e9)):
 
 - On Linux and macOS the adb server uses its libusb backend by default (`client/transport_usb.cpp`, `is_libusb_enabled`: on everywhere except Windows; `ADB_LIBUSB=1` or `ADB_LIBUSB=0` overrides it).
 - That backend only looks at a device when libusb reports it as arrived: once for each device present at startup (`LIBUSB_HOTPLUG_ENUMERATE`) and again only when it is plugged in (`client/usb_libusb_hotplug.cpp`, `usb_init_libusb_hotplug`, `process_device`).
@@ -78,4 +78,4 @@ After this, Windows `adb.exe` still sees the phone over USB as before. Tools tha
 ## Limits
 
 - One adb client at a time. Normally there is only one adb server, so this is enough.
-- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through aoahid_player's ADB Bridge. That app keeps the phone in its current USB mode (no `aoahid_accessory_start`), so the accessory-mode path was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
+- Verified end to end on real hardware with a Samsung Galaxy Tab S11 and a POCO F6 Pro (HyperOS), each on Windows 10 x64 and Arch Linux (phone driver WinUSB or libusbK on Windows), through android-macro-player's ADB Bridge. That app keeps the phone in its current USB mode (no `aoahid_accessory_start`), so the accessory-mode path was not part of it. On Windows the HyperOS phone worked with its default WinUSB driver; the Samsung tablet needed the Zadig step above.
