@@ -624,8 +624,10 @@ aoahid_result AOAHID_CALL aoahid_channel_read(aoahid_channel*, uint8_t* buffer, 
                                               size_t* out_received, uint32_t timeout_ms) {
     std::unique_lock<std::mutex> lock(g_mutex);
     *out_received = 0;
-    g_cv.wait_for(lock, std::chrono::milliseconds(timeout_ms),
-                  [] { return !g_in.empty() || g_read_error != AOAHID_OK; });
+    // wait_until on system_clock, not wait_for: GCC 11's ThreadSanitizer does not
+    // intercept the pthread_cond_clockwait that wait_for uses and reports false races.
+    g_cv.wait_until(lock, std::chrono::system_clock::now() + std::chrono::milliseconds(timeout_ms),
+                    [] { return !g_in.empty() || g_read_error != AOAHID_OK; });
     if (g_read_error != AOAHID_OK) return g_read_error;
     if (g_in.empty()) return AOAHID_ERR_TIMEOUT;
     size_t count = g_in.size() < capacity ? g_in.size() : capacity;
